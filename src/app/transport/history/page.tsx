@@ -223,6 +223,7 @@ export default function TransportHistoryPage() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="max-w-sm"
+                      uppercase={false}
                     />
                   </div>
 

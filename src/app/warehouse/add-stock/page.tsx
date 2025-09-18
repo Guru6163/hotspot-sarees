@@ -155,7 +155,7 @@ export default function AddStockPage() {
           </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Category - Full width */}
               <FormField
                 control={form.control}
@@ -222,8 +222,8 @@ export default function AddStockPage() {
                 )}
               />
 
-              <div className="grid gap-6 lg:grid-cols-3 md:grid-cols-2">
-                {/* Item Code */}
+              {/* Second Row: Item Code and Item Name */}
+              <div className="grid gap-6 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="itemCode"
@@ -241,7 +241,6 @@ export default function AddStockPage() {
                   )}
                 />
 
-                {/* Item Name */}
                 <FormField
                   control={form.control}
                   name="itemName"
@@ -258,8 +257,10 @@ export default function AddStockPage() {
                     </FormItem>
                   )}
                 />
+              </div>
 
-                {/* Quantity */}
+              {/* Third Row: Quantity, Unit Price, and Supplier */}
+              <div className="grid gap-6 lg:grid-cols-3 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="quantity"
@@ -278,7 +279,6 @@ export default function AddStockPage() {
                   )}
                 />
 
-                {/* Unit Price */}
                 <FormField
                   control={form.control}
                   name="unitPrice"
@@ -298,7 +298,6 @@ export default function AddStockPage() {
                   )}
                 />
 
-                {/* Supplier */}
                 <FormField
                   control={form.control}
                   name="supplier"

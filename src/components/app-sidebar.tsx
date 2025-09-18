@@ -94,83 +94,6 @@ const data = {
       ],
     },
     {
-      title: "Sales Analytics",
-      url: "#",
-      icon: TrendingUp,
-      items: [
-        {
-          title: "Sales Reports",
-          url: "#",
-        },
-        {
-          title: "Revenue Trends",
-          url: "#",
-        },
-        {
-          title: "Product Performance",
-          url: "#",
-        },
-        {
-          title: "Monthly Analysis",
-          url: "#",
-        },
-        {
-          title: "Seasonal Trends",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Purchases",
-      url: "#",
-      icon: ShoppingCart,
-      items: [
-        {
-          title: "Purchase Orders",
-          url: "#",
-        },
-        {
-          title: "Suppliers",
-          url: "#",
-        },
-        {
-          title: "Received Stock",
-          url: "#",
-        },
-        {
-          title: "Purchase History",
-          url: "#",
-        },
-        {
-          title: "Create Purchase Order",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Stock Management",
-      url: "#",
-      icon: Package,
-      items: [
-        {
-          title: "Inventory Overview",
-          url: "#",
-        },
-        {
-          title: "Low Stock Alerts",
-          url: "#",
-        },
-        {
-          title: "Stock Adjustments",
-          url: "#",
-        },
-        {
-          title: "Product Categories",
-          url: "#",
-        },
-      ],
-    },
-    {
       title: "Warehouse Management",
       url: "/warehouse/stock-management",
       icon: Warehouse,
@@ -185,33 +108,7 @@ const data = {
         },
       ],
     },
-    {
-      title: "Customer Management",
-      url: "#",
-      icon: Users,
-      items: [
-        {
-          title: "All Customers",
-          url: "#",
-        },
-        {
-          title: "VIP Customers",
-          url: "#",
-        },
-        {
-          title: "Customer Orders",
-          url: "#",
-        },
-        {
-          title: "Customer Support",
-          url: "#",
-        },
-        {
-          title: "Customer Analytics",
-          url: "#",
-        },
-      ],
-    },
+
     {
       title: "Transport Management",
       url: "/transport/new",

@@ -267,6 +267,7 @@ export default function BarcodeGeneratePage() {
                             <Input
                               placeholder="Enter text or code to generate barcode"
                               {...field}
+                              uppercase={true}
                             />
                           </FormControl>
                           <FormMessage />
