@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { 
   Calendar, 
   Filter, 
@@ -32,7 +32,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { AppSidebar } from "@/components/app-sidebar"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 
-import { getPurchases, type Purchase, type PurchaseListResponse } from "@/lib/api/billing"
+import { getPurchases, type Purchase } from "@/lib/api/billing"
 
 interface FilterState {
   customerName: string
@@ -62,7 +62,7 @@ export default function TransactionHistoryPage() {
   })
 
   // Fetch purchases with current filters and pagination
-  const fetchPurchases = async (page: number = currentPage, filterState: FilterState = filters) => {
+  const fetchPurchases = useCallback(async (page: number = currentPage, filterState: FilterState = filters) => {
     setLoading(true)
     setError(null)
     
@@ -84,7 +84,7 @@ export default function TransactionHistoryPage() {
         setTotalItems(response.pagination.total)
         setCurrentPage(response.pagination.page)
       } else {
-        setError(response.error || "Failed to fetch transactions")
+        setError('error' in response ? response.error : "Failed to fetch transactions")
       }
     } catch (err) {
       setError("An error occurred while fetching transactions")
@@ -92,12 +92,12 @@ export default function TransactionHistoryPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, filters, itemsPerPage])
 
   // Initial load
   useEffect(() => {
     fetchPurchases()
-  }, [])
+  }, [fetchPurchases])
 
   // Handle filter changes
   const handleFilterChange = (key: keyof FilterState, value: string) => {
@@ -139,16 +139,31 @@ export default function TransactionHistoryPage() {
   }
 
   // Get payment method badge variant
-  const getPaymentMethodBadge = (method: string) => {
-    switch (method) {
+  const getPaymentMethodBadge = (purchase: Purchase) => {
+    if (purchase.isSplitPayment && purchase.payments && purchase.payments.length > 0) {
+      return (
+        <div className="flex flex-wrap gap-1">
+          <Badge variant="secondary" className="text-xs">Split</Badge>
+          {purchase.payments.map((payment, index) => (
+            <Badge key={index} variant="outline" className="text-xs">
+              {payment.paymentMethod}: ₹{payment.amount.toFixed(2)}
+            </Badge>
+          ))}
+        </div>
+      )
+    }
+    
+    switch (purchase.paymentMethod) {
       case "cash":
         return <Badge variant="secondary">Cash</Badge>
       case "card":
         return <Badge variant="default">Card</Badge>
       case "upi":
         return <Badge variant="outline">UPI</Badge>
+      case "split":
+        return <Badge variant="secondary">Split Payment</Badge>
       default:
-        return <Badge variant="outline">{method}</Badge>
+        return <Badge variant="outline">{purchase.paymentMethod}</Badge>
     }
   }
 
@@ -414,7 +429,7 @@ export default function TransactionHistoryPage() {
                           {formatDate(purchase.createdAt)}
                         </TableCell>
                         <TableCell>
-                          {getPaymentMethodBadge(purchase.paymentMethod)}
+                          {getPaymentMethodBadge(purchase)}
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
@@ -503,6 +518,37 @@ export default function TransactionHistoryPage() {
                                     <div className="flex justify-between font-bold text-lg">
                                       <span>Total:</span>
                                       <span>{formatCurrency(selectedPurchase.totalAmount)}</span>
+                                    </div>
+                                  </div>
+                                  
+                                  <Separator />
+                                  
+                                  {/* Payment Information */}
+                                  <div>
+                                    <Label className="text-sm font-medium">Payment Information</Label>
+                                    <div className="mt-2">
+                                      {selectedPurchase.isSplitPayment && selectedPurchase.payments && selectedPurchase.payments.length > 0 ? (
+                                        <div className="space-y-2">
+                                          <div className="flex items-center gap-2">
+                                            <Badge variant="secondary">Split Payment</Badge>
+                                          </div>
+                                          <div className="space-y-1">
+                                            {selectedPurchase.payments.map((payment, index) => (
+                                              <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span className="text-sm font-medium capitalize">{payment.paymentMethod}</span>
+                                                <span className="text-sm font-medium">{formatCurrency(payment.amount)}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                          <span className="text-sm font-medium capitalize">
+                                            {selectedPurchase.paymentMethod === "split" ? "Split Payment" : selectedPurchase.paymentMethod}
+                                          </span>
+                                          <span className="text-sm font-medium">{formatCurrency(selectedPurchase.totalAmount)}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   

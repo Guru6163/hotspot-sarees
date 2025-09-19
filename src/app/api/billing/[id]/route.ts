@@ -4,17 +4,19 @@ import { prisma } from '@/lib/prisma'
 // GET /api/billing/[id] - Get a single purchase by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const purchase = await prisma.purchase.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         items: {
           include: {
             stock: true
           }
-        }
+        },
+        payments: true
       }
     })
 

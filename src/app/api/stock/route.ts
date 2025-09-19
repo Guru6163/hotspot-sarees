@@ -51,7 +51,17 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: any = {}
+    const where: {
+      category?: string;
+      OR?: Array<{
+        itemName: {
+          equals?: string;
+          startsWith?: string;
+          contains?: string;
+          mode: 'insensitive';
+        };
+      }>;
+    } = {}
     if (category) {
       where.category = category
     }

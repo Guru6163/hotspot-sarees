@@ -68,6 +68,18 @@ export default function POSPage() {
   // Payment information
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "upi">("cash");
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  
+  // Split payment information
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [splitPayments, setSplitPayments] = useState<{
+    cash: number;
+    card: number;
+    upi: number;
+  }>({
+    cash: 0,
+    card: 0,
+    upi: 0,
+  });
 
   // Focus on barcode input when component mounts
   useEffect(() => {
@@ -252,6 +264,30 @@ export default function POSPage() {
     toast.success("Invoice cleared");
   };
 
+  // Split payment helper functions
+  const handleSplitPaymentChange = (method: "cash" | "card" | "upi", value: string) => {
+    const numValue = parseFloat(value) || 0;
+    setSplitPayments(prev => ({
+      ...prev,
+      [method]: numValue
+    }));
+  };
+
+  const getSplitPaymentTotal = () => {
+    return splitPayments.cash + splitPayments.card + splitPayments.upi;
+  };
+
+  const getSplitPaymentDifference = () => {
+    return finalTotal - getSplitPaymentTotal();
+  };
+
+  const resetSplitPayments = () => {
+    setSplitPayments({
+      cash: 0,
+      card: 0,
+      upi: 0,
+    });
+  };
 
   const handleCompletePurchase = async () => {
     if (cart.length === 0) {
@@ -261,6 +297,23 @@ export default function POSPage() {
 
     if (isProcessingPurchase) {
       return; // Prevent duplicate submissions
+    }
+
+    // Validate split payments if enabled
+    if (isSplitPayment) {
+      const splitTotal = getSplitPaymentTotal();
+      const difference = getSplitPaymentDifference();
+      
+      if (Math.abs(difference) > 0.01) { // Allow for small floating point differences
+        toast.error(`Split payment total (₹${splitTotal.toFixed(2)}) must equal the total amount (₹${finalTotal.toFixed(2)})`);
+        return;
+      }
+      
+      // Check that at least one payment method has an amount
+      if (splitTotal === 0) {
+        toast.error("Please enter amounts for at least one payment method");
+        return;
+      }
     }
 
     setIsProcessingPurchase(true);
@@ -277,7 +330,13 @@ export default function POSPage() {
         discountAmount,
         taxAmount: 0, // Currently no tax
         totalAmount: finalTotal,
-        paymentMethod,
+        paymentMethod: isSplitPayment ? "split" : paymentMethod, // Use "split" for split payments
+        isSplitPayment,
+        splitPayments: isSplitPayment ? [
+          ...(splitPayments.cash > 0 ? [{ paymentMethod: "cash" as const, amount: splitPayments.cash }] : []),
+          ...(splitPayments.card > 0 ? [{ paymentMethod: "card" as const, amount: splitPayments.card }] : []),
+          ...(splitPayments.upi > 0 ? [{ paymentMethod: "upi" as const, amount: splitPayments.upi }] : []),
+        ] : undefined,
         items: cart.map(item => ({
           stockId: item.stock.id,
           quantity: item.quantity,
@@ -299,6 +358,8 @@ export default function POSPage() {
         setNotes("");
         setDiscountValue("");
         setIsPaymentModalOpen(false);
+        setIsSplitPayment(false);
+        resetSplitPayments();
       } else {
         toast.error("error" in response ? response.error : "Failed to complete purchase");
       }
@@ -763,29 +824,127 @@ export default function POSPage() {
                           {/* Payment Method */}
                           <div className="space-y-3">
                             <h3 className="font-medium">Payment Method</h3>
-                            <RadioGroup value={paymentMethod} onValueChange={(value: "cash" | "card" | "upi") => setPaymentMethod(value)}>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="cash" id="cash" />
-                                <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer">
-                                  <Banknote className="h-4 w-4" />
-                                  Cash
-                                </Label>
+                            
+                            {/* Split Payment Toggle */}
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="split-payment"
+                                checked={isSplitPayment}
+                                onChange={(e) => {
+                                  setIsSplitPayment(e.target.checked);
+                                  if (!e.target.checked) {
+                                    resetSplitPayments();
+                                  }
+                                }}
+                                className="rounded border-gray-300"
+                              />
+                              <Label htmlFor="split-payment" className="text-sm cursor-pointer">
+                                Split Payment (Half Cash, Half Other)
+                              </Label>
+                            </div>
+
+                            {!isSplitPayment ? (
+                              <RadioGroup value={paymentMethod} onValueChange={(value: "cash" | "card" | "upi") => setPaymentMethod(value)}>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="cash" id="cash" />
+                                  <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer">
+                                    <Banknote className="h-4 w-4" />
+                                    Cash
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="card" id="card" />
+                                  <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer">
+                                    <CreditCard className="h-4 w-4" />
+                                    Card
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="upi" id="upi" />
+                                  <Label htmlFor="upi" className="flex items-center gap-2 cursor-pointer">
+                                    <Smartphone className="h-4 w-4" />
+                                    UPI
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="text-sm text-gray-600">
+                                  Total Amount: ₹{finalTotal.toFixed(2)}
+                                </div>
+                                
+                                {/* Cash Payment */}
+                                <div className="space-y-2">
+                                  <Label className="flex items-center gap-2 text-sm font-medium">
+                                    <Banknote className="h-4 w-4" />
+                                    Cash Amount
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    placeholder="0.00"
+                                    value={splitPayments.cash || ""}
+                                    onChange={(e) => handleSplitPaymentChange("cash", e.target.value)}
+                                    step="0.01"
+                                    min="0"
+                                    max={finalTotal}
+                                  />
+                                </div>
+
+                                {/* Card Payment */}
+                                <div className="space-y-2">
+                                  <Label className="flex items-center gap-2 text-sm font-medium">
+                                    <CreditCard className="h-4 w-4" />
+                                    Card Amount
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    placeholder="0.00"
+                                    value={splitPayments.card || ""}
+                                    onChange={(e) => handleSplitPaymentChange("card", e.target.value)}
+                                    step="0.01"
+                                    min="0"
+                                    max={finalTotal}
+                                  />
+                                </div>
+
+                                {/* UPI Payment */}
+                                <div className="space-y-2">
+                                  <Label className="flex items-center gap-2 text-sm font-medium">
+                                    <Smartphone className="h-4 w-4" />
+                                    UPI Amount
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    placeholder="0.00"
+                                    value={splitPayments.upi || ""}
+                                    onChange={(e) => handleSplitPaymentChange("upi", e.target.value)}
+                                    step="0.01"
+                                    min="0"
+                                    max={finalTotal}
+                                  />
+                                </div>
+
+                                {/* Split Payment Summary */}
+                                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                                  <div className="flex justify-between text-sm">
+                                    <span>Split Total:</span>
+                                    <span className="font-medium">₹{getSplitPaymentTotal().toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm">
+                                    <span>Remaining:</span>
+                                    <span className={`font-medium ${getSplitPaymentDifference() === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      ₹{getSplitPaymentDifference().toFixed(2)}
+                                    </span>
+                                  </div>
+                                  {getSplitPaymentDifference() === 0 && getSplitPaymentTotal() > 0 && (
+                                    <div className="text-xs text-green-600 font-medium">
+                                      ✓ Payment amounts match total
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="card" id="card" />
-                                <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer">
-                                  <CreditCard className="h-4 w-4" />
-                                  Card
-                                </Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="upi" id="upi" />
-                                <Label htmlFor="upi" className="flex items-center gap-2 cursor-pointer">
-                                  <Smartphone className="h-4 w-4" />
-                                  UPI
-                                </Label>
-                              </div>
-                            </RadioGroup>
+                            )}
                           </div>
 
                           {/* Action Buttons */}

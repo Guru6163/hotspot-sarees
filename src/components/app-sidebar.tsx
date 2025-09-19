@@ -4,15 +4,15 @@ import * as React from "react"
 import {
   ShoppingBag,
   Package,
-  Users,
+  // Users,
   BarChart3,
   Globe,
-  TrendingUp,
+  // TrendingUp,
   CreditCard,
-  ShoppingCart,
+  // ShoppingCart,
   Warehouse,
   Truck,
-  QrCode,
+  // QrCode,
 } from "lucide-react"
 
 import { NavMain } from "./nav-main"

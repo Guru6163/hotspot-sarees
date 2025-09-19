@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma'
 // GET /api/stock/barcode/[stockID] - Get stock item by stockID (barcode)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { stockID: string } }
+  { params }: { params: Promise<{ stockID: string }> }
 ) {
   try {
+    const { stockID } = await params
     const stock = await prisma.stock.findUnique({
-      where: { stockID: params.stockID },
+      where: { stockID },
     })
 
     if (!stock) {

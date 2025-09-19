@@ -157,7 +157,7 @@ export default function BarcodeGeneratePage() {
     const stickersPerCol = Math.floor((1123 - 2 * margin) / (stickerHeight + spacing)) // A4 height ~1123px at 96dpi
     const stickersPerPage = stickersPerRow * stickersPerCol
 
-    const totalPages = Math.ceil(quantity / stickersPerPage)
+    // const totalPages = Math.ceil(quantity / stickersPerPage)
     
     // For simplicity, create a single sheet with as many as fit
     const actualStickers = Math.min(quantity, stickersPerPage)
@@ -561,7 +561,7 @@ export default function BarcodeGeneratePage() {
                     {!generatedBarcode && (
                       <div className="text-center text-muted-foreground">
                         <QrCode className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Enter text and click "Generate Barcode" to see preview</p>
+                        <p>Enter text and click &quot;Generate Barcode&quot; to see preview</p>
                       </div>
                     )}
                   </div>

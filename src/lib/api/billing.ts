@@ -6,6 +6,11 @@ export interface PurchaseItem {
   totalPrice: number
 }
 
+export interface SplitPayment {
+  paymentMethod: "cash" | "card" | "upi"
+  amount: number
+}
+
 export interface CreatePurchaseData {
   customerName: string
   customerPhone?: string
@@ -17,8 +22,20 @@ export interface CreatePurchaseData {
   discountAmount?: number
   taxAmount?: number
   totalAmount: number
-  paymentMethod: "cash" | "card" | "upi"
+  paymentMethod: "cash" | "card" | "upi" | "split" // For backward compatibility
+  isSplitPayment?: boolean
+  splitPayments?: SplitPayment[] // For split payments
   items: PurchaseItem[]
+}
+
+export interface PaymentDetail {
+  id: string
+  purchaseId: string
+  paymentMethod: string
+  amount: number
+  status: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Purchase {
@@ -36,9 +53,11 @@ export interface Purchase {
   totalAmount: number
   paymentMethod: string
   paymentStatus: string
+  isSplitPayment: boolean
   createdAt: string
   updatedAt: string
   items: PurchaseItemWithStock[]
+  payments?: PaymentDetail[] // Split payments
 }
 
 export interface PurchaseItemWithStock {

@@ -13,7 +13,7 @@ const createTransportSchema = z.object({
   notes: z.string().optional(),
 })
 
-const updateTransportSchema = createTransportSchema.partial()
+// const updateTransportSchema = createTransportSchema.partial()
 
 // GET /api/transport - Get all transport records with optional filtering
 export async function GET(request: NextRequest) {
@@ -27,7 +27,21 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build where clause for filtering
-    const where: any = {}
+    const where: {
+      OR?: Array<{
+        invoiceNo?: {
+          contains: string;
+          mode: 'insensitive';
+        };
+        numberOfBundles?: {
+          equals: number | undefined;
+        };
+      }>;
+      inDate?: {
+        gte?: Date;
+        lte?: Date;
+      };
+    } = {}
 
     if (search) {
       where.OR = [
@@ -112,7 +126,7 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       )
     }

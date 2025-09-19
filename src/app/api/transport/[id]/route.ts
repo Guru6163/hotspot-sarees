@@ -16,11 +16,12 @@ const updateTransportSchema = z.object({
 // GET /api/transport/[id] - Get a specific transport record
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const transport = await prisma.transport.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!transport) {
@@ -43,9 +44,10 @@ export async function GET(
 // PUT /api/transport/[id] - Update a specific transport record
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     
     // Validate the request body
@@ -53,7 +55,7 @@ export async function PUT(
 
     // Check if transport record exists
     const existingTransport = await prisma.transport.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingTransport) {
@@ -84,7 +86,7 @@ export async function PUT(
 
     // Update the transport record
     const transport = await prisma.transport.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...validatedData,
         totalAmount,
@@ -97,7 +99,7 @@ export async function PUT(
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       )
     }
@@ -112,12 +114,13 @@ export async function PUT(
 // DELETE /api/transport/[id] - Delete a specific transport record
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Check if transport record exists
     const existingTransport = await prisma.transport.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingTransport) {
@@ -129,7 +132,7 @@ export async function DELETE(
 
     // Delete the transport record
     await prisma.transport.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ message: "Transport record deleted successfully" })

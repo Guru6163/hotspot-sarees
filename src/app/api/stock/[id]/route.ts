@@ -16,11 +16,12 @@ const updateStockSchema = z.object({
 // GET /api/stock/[id] - Get single stock item
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const stock = await prisma.stock.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!stock) {
@@ -46,9 +47,10 @@ export async function GET(
 // PUT /api/stock/[id] - Update stock item
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     
     // Validate the request body
@@ -56,7 +58,7 @@ export async function PUT(
 
     // Check if stock exists
     const existingStock = await prisma.stock.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingStock) {
@@ -68,7 +70,7 @@ export async function PUT(
 
     // Update the stock item
     const stock = await prisma.stock.update({
-      where: { id: params.id },
+      where: { id },
       data: validatedData,
     })
 
@@ -101,12 +103,13 @@ export async function PUT(
 // DELETE /api/stock/[id] - Delete stock item
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Check if stock exists
     const existingStock = await prisma.stock.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingStock) {
@@ -118,7 +121,7 @@ export async function DELETE(
 
     // Delete the stock item
     await prisma.stock.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({

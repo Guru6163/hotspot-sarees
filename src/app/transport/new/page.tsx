@@ -50,9 +50,7 @@ import {
 import { createTransport } from "@/lib/api/transport"
 
 const transportFormSchema = z.object({
-  inDate: z.date({
-    required_error: "In Date is required.",
-  }),
+  inDate: z.date(),
   numberOfBundles: z.string().min(1, "Number of bundles is required"),
   freightCharges: z.string().min(1, "Freight charges is required"),
   invoiceNo: z.string().min(1, "Invoice number is required"),

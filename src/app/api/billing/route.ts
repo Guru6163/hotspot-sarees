@@ -38,7 +38,12 @@ const createPurchaseSchema = z.object({
   discountAmount: z.number().min(0).default(0),
   taxAmount: z.number().min(0).default(0),
   totalAmount: z.number().positive("Total amount must be positive"),
-  paymentMethod: z.enum(["cash", "card", "upi"]),
+  paymentMethod: z.enum(["cash", "card", "upi", "split"]),
+  isSplitPayment: z.boolean().optional().default(false),
+  splitPayments: z.array(z.object({
+    paymentMethod: z.enum(["cash", "card", "upi"]),
+    amount: z.number().positive("Payment amount must be positive")
+  })).optional(),
   items: z.array(z.object({
     stockId: z.string().min(1, "Stock ID is required"),
     quantity: z.number().int().positive("Quantity must be a positive integer"),
@@ -54,6 +59,26 @@ export async function POST(request: NextRequest) {
     
     // Validate the request body
     const validatedData = createPurchaseSchema.parse(body)
+
+    // Validate split payments if enabled
+    if (validatedData.isSplitPayment && validatedData.splitPayments) {
+      const splitTotal = validatedData.splitPayments.reduce((sum, payment) => sum + payment.amount, 0)
+      const difference = Math.abs(validatedData.totalAmount - splitTotal)
+      
+      if (difference > 0.01) { // Allow for small floating point differences
+        return NextResponse.json({
+          success: false,
+          error: `Split payment total (₹${splitTotal.toFixed(2)}) must equal the total amount (₹${validatedData.totalAmount.toFixed(2)})`
+        }, { status: 400 })
+      }
+      
+      if (validatedData.splitPayments.length === 0) {
+        return NextResponse.json({
+          success: false,
+          error: "At least one split payment is required when split payment is enabled"
+        }, { status: 400 })
+      }
+    }
 
     // Generate unique invoice number outside transaction
     const invoiceNumber = await generateInvoiceNumber()
@@ -115,6 +140,7 @@ export async function POST(request: NextRequest) {
           taxAmount: validatedData.taxAmount,
           totalAmount: validatedData.totalAmount,
           paymentMethod: validatedData.paymentMethod,
+          isSplitPayment: validatedData.isSplitPayment,
           items: {
             create: validatedData.items.map(item => ({
               stockId: item.stockId,
@@ -122,14 +148,22 @@ export async function POST(request: NextRequest) {
               unitPrice: item.unitPrice,
               totalPrice: item.totalPrice
             }))
-          }
+          },
+          payments: validatedData.isSplitPayment && validatedData.splitPayments ? {
+            create: validatedData.splitPayments.map(payment => ({
+              paymentMethod: payment.paymentMethod,
+              amount: payment.amount,
+              status: "completed"
+            }))
+          } : undefined
         },
         include: {
           items: {
             include: {
               stock: true
             }
-          }
+          },
+          payments: true
         }
       })
 
@@ -232,7 +266,8 @@ export async function GET(request: NextRequest) {
             include: {
               stock: true
             }
-          }
+          },
+          payments: true
         }
       }),
       prisma.purchase.count({ where }),
