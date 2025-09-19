@@ -56,14 +56,6 @@ const data = {
           title: "Overview",
           url: "#",
         },
-        {
-          title: "Quick Stats",
-          url: "#",
-        },
-        {
-          title: "Recent Activity",
-          url: "#",
-        },
       ],
     },
     {
@@ -76,8 +68,8 @@ const data = {
           url: "/pos",
         },
         {
-          title: "Invoices",
-          url: "#",
+          title: "Transaction History",
+          url: "/billing/transaction-history",
         },
       ],
     },
@@ -109,17 +101,6 @@ const data = {
         {
           title: "Transport History",
           url: "/transport/history",
-        },
-      ],
-    },
-    {
-      title: "Barcode",
-      url: "/barcode/generate",
-      icon: QrCode,
-      items: [
-        {
-          title: "Generate Barcode",
-          url: "/barcode/generate",
         },
       ],
     },
