@@ -26,6 +26,7 @@ import {
   Smartphone,
   Printer,
   CheckCircle,
+  Loader2,
 } from "lucide-react";
 import { getStockByBarcode, searchStocks, Stock } from "@/lib/api/stock";
 import { createPurchase, CreatePurchaseData } from "@/lib/api/billing";
@@ -44,6 +45,7 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
   const [error, setError] = useState("");
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   
@@ -257,6 +259,12 @@ export default function POSPage() {
       return;
     }
 
+    if (isProcessingPurchase) {
+      return; // Prevent duplicate submissions
+    }
+
+    setIsProcessingPurchase(true);
+
     try {
       const purchaseData: CreatePurchaseData = {
         customerName: customerName || "Walk-in Customer",
@@ -297,6 +305,8 @@ export default function POSPage() {
     } catch (error) {
       console.error("Error completing purchase:", error);
       toast.error("Failed to complete purchase. Please try again.");
+    } finally {
+      setIsProcessingPurchase(false);
     }
   };
 
@@ -783,13 +793,24 @@ export default function POSPage() {
                             <Button
                               onClick={handleCompletePurchase}
                               className="flex-1"
+                              disabled={isProcessingPurchase}
                             >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Complete Purchase
+                              {isProcessingPurchase ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Processing...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Complete Purchase
+                                </>
+                              )}
                             </Button>
                             <Button
                               variant="outline"
                               onClick={handlePrintBill}
+                              disabled={isProcessingPurchase}
                             >
                               <Printer className="h-4 w-4" />
                             </Button>
