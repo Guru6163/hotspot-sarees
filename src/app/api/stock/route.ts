@@ -35,6 +35,7 @@ const createStockSchema = z.object({
   color: z.string().min(1, "Color is required"),
   quantity: z.number().int().positive("Quantity must be a positive integer"),
   unitPrice: z.number().positive("Unit price must be positive"),
+  sellingPrice: z.number().positive("Selling price must be positive"),
   supplier: z.string().min(1, "Supplier is required"),
 })
 
@@ -102,14 +103,20 @@ export async function POST(request: NextRequest) {
     // Validate the request body
     const validatedData = createStockSchema.parse(body)
 
+    // Calculate profit fields
+    const profitAmount = validatedData.sellingPrice - validatedData.unitPrice
+    const profitPercentage = (profitAmount / validatedData.unitPrice) * 100
+
     // Generate unique stockID
     const stockID = await generateStockID()
 
-    // Create the stock item with generated stockID
+    // Create the stock item with generated stockID and calculated profit fields
     const stock = await prisma.stock.create({
       data: {
         ...validatedData,
         stockID,
+        profitAmount,
+        profitPercentage,
       },
     })
 

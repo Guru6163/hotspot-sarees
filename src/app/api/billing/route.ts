@@ -62,10 +62,20 @@ export async function POST(request: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       // Check stock availability and calculate total
       const stockUpdates = []
+      const stockItems = []
+      
+      // First, get all stock items in one query
+      const stockIds = validatedData.items.map(item => item.stockId)
+      const stocks = await tx.stock.findMany({
+        where: { id: { in: stockIds } }
+      })
+
+      // Create a map for quick lookup
+      const stockMap = new Map(stocks.map(stock => [stock.id, stock]))
+
+      // Validate stock availability
       for (const item of validatedData.items) {
-        const stock = await tx.stock.findUnique({
-          where: { id: item.stockId }
-        })
+        const stock = stockMap.get(item.stockId)
 
         if (!stock) {
           throw new Error(`Stock item with ID ${item.stockId} not found`)
@@ -79,15 +89,16 @@ export async function POST(request: NextRequest) {
           id: item.stockId,
           newQuantity: stock.quantity - item.quantity
         })
+        stockItems.push(stock)
       }
 
-      // Update stock quantities
-      for (const update of stockUpdates) {
-        await tx.stock.update({
+      // Update stock quantities in batch
+      await Promise.all(stockUpdates.map(update => 
+        tx.stock.update({
           where: { id: update.id },
           data: { quantity: update.newQuantity }
         })
-      }
+      ))
 
       // Create the purchase record
       const purchase = await tx.purchase.create({
@@ -124,7 +135,8 @@ export async function POST(request: NextRequest) {
 
       return purchase
     }, {
-      timeout: 10000 // 10 seconds timeout
+      timeout: 30000, // Increased timeout to 30 seconds
+      isolationLevel: 'ReadCommitted' // Use a more permissive isolation level
     })
 
     return NextResponse.json({
@@ -147,7 +159,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Handle transaction-specific errors
     if (error instanceof Error) {
+      if (error.message.includes('Transaction') || error.message.includes('transaction')) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Database transaction failed. Please try again.',
+            details: 'The operation could not be completed due to a database transaction issue.'
+          },
+          { status: 503 }
+        )
+      }
+      
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 400 }
@@ -175,7 +199,12 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: any = {}
+    const where: {
+      customerName?: { contains: string; mode: 'insensitive' }
+      paymentMethod?: string
+      createdAt?: { gte?: Date; lte?: Date }
+    } = {}
+    
     if (customerName) {
       where.customerName = { contains: customerName, mode: 'insensitive' }
     }

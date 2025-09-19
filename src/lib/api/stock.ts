@@ -8,6 +8,9 @@ export interface Stock {
   color: string
   quantity: number
   unitPrice: number
+  sellingPrice: number | null
+  profitAmount: number | null
+  profitPercentage: number | null
   supplier: string
   createdAt: string
   updatedAt: string
@@ -20,6 +23,7 @@ export interface CreateStockData {
   color: string
   quantity: number
   unitPrice: number
+  sellingPrice: number
   supplier: string
 }
 
@@ -30,6 +34,7 @@ export interface UpdateStockData {
   color?: string
   quantity?: number
   unitPrice?: number
+  sellingPrice?: number
   supplier?: string
 }
 

@@ -176,7 +176,7 @@ export default function StockManagementPage() {
   }
 
   const exportData = () => {
-    const headers = ["Item Code", "Item Name", "Category", "Color", "Quantity", "Unit Price", "Total Value", "Supplier", "Created At"]
+    const headers = ["Item Code", "Item Name", "Category", "Color", "Quantity", "Unit Price", "Selling Price", "Profit Amount", "Profit %", "Total Value", "Supplier", "Created At"]
     const csvContent = [
       headers.join(","),
       ...filteredStocks.map(row => [
@@ -186,6 +186,9 @@ export default function StockManagementPage() {
         row.color,
         row.quantity,
         row.unitPrice,
+        row.sellingPrice || "",
+        row.profitAmount || "",
+        row.profitPercentage ? `${row.profitPercentage.toFixed(1)}%` : "",
         (row.quantity * row.unitPrice).toFixed(2),
         `"${row.supplier}"`,
         format(new Date(row.createdAt), "yyyy-MM-dd")
@@ -564,6 +567,9 @@ export default function StockManagementPage() {
                           <TableHead>Color</TableHead>
                           <TableHead className="text-right">Quantity</TableHead>
                           <TableHead className="text-right">Unit Price (₹)</TableHead>
+                          <TableHead className="text-right">Selling Price (₹)</TableHead>
+                          <TableHead className="text-right">Profit (₹)</TableHead>
+                          <TableHead className="text-right">Profit %</TableHead>
                           <TableHead className="text-right">Total Value (₹)</TableHead>
                           <TableHead>Supplier</TableHead>
                           <TableHead>Created</TableHead>
@@ -589,6 +595,23 @@ export default function StockManagementPage() {
                               </TableCell>
                               <TableCell className="text-right font-medium">{item.quantity}</TableCell>
                               <TableCell className="text-right">₹{item.unitPrice.toLocaleString()}</TableCell>
+                              <TableCell className="text-right">
+                                {item.sellingPrice ? `₹${item.sellingPrice.toLocaleString()}` : "N/A"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {item.profitAmount ? (
+                                  <span className={`font-medium ${item.profitAmount >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    ₹{item.profitAmount.toLocaleString()}
+                                  </span>
+                                ) : "N/A"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {item.profitPercentage ? (
+                                  <span className={`font-medium ${item.profitPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {item.profitPercentage.toFixed(1)}%
+                                  </span>
+                                ) : "N/A"}
+                              </TableCell>
                               <TableCell className="text-right font-medium">
                                 ₹{(item.quantity * item.unitPrice).toLocaleString()}
                               </TableCell>
@@ -623,7 +646,7 @@ export default function StockManagementPage() {
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                               No stock items found.
                             </TableCell>
                           </TableRow>

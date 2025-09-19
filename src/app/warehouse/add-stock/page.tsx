@@ -47,6 +47,7 @@ const addStockFormSchema = z.object({
   color: z.string().min(1, "Color is required"),
   quantity: z.string().min(1, "Quantity is required"),
   unitPrice: z.string().min(1, "Unit price is required"),
+  sellingPrice: z.string().min(1, "Selling price is required"),
   supplier: z.string().min(1, "Supplier is required"),
 })
 
@@ -65,6 +66,7 @@ export default function AddStockPage() {
       color: "",
       quantity: "",
       unitPrice: "",
+      sellingPrice: "",
       supplier: "",
     },
   })
@@ -81,6 +83,7 @@ export default function AddStockPage() {
         color: data.color,
         quantity: parseInt(data.quantity),
         unitPrice: parseFloat(data.unitPrice),
+        sellingPrice: parseFloat(data.sellingPrice),
         supplier: data.supplier,
       }
 
@@ -295,8 +298,8 @@ export default function AddStockPage() {
                 />
               </div>
 
-              {/* Third Row: Quantity, Unit Price, and Supplier */}
-              <div className="grid gap-6 lg:grid-cols-3 md:grid-cols-2">
+              {/* Third Row: Quantity, Unit Price, Selling Price, and Supplier */}
+              <div className="grid gap-6 lg:grid-cols-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="quantity"
@@ -336,6 +339,25 @@ export default function AddStockPage() {
 
                 <FormField
                   control={form.control}
+                  name="sellingPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Selling Price (₹)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Enter selling price"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="supplier"
                   render={({ field }) => (
                     <FormItem>
@@ -352,17 +374,60 @@ export default function AddStockPage() {
                 />
               </div>
 
-              {/* Total Value Display */}
-              <div className="rounded-lg border bg-muted/50 p-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-medium">Total Stock Value:</span>
-                  <span className="text-2xl font-bold text-primary">
-                    ₹{(parseFloat(form.watch("quantity") || "0") * parseFloat(form.watch("unitPrice") || "0")).toFixed(2)}
-                  </span>
+              {/* Financial Summary Display */}
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Total Stock Value */}
+                <div className="rounded-lg border bg-muted/50 p-6">
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-medium">Total Stock Value:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      ₹{(parseFloat(form.watch("quantity") || "0") * parseFloat(form.watch("unitPrice") || "0")).toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Quantity × Unit Price = Total Value
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Quantity × Unit Price = Total Value
-                </p>
+
+                {/* Profit Calculation */}
+                <div className="rounded-lg border bg-muted/50 p-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-base font-medium">Profit Amount:</span>
+                      <span className={`text-xl font-bold ${(() => {
+                        const unitPrice = parseFloat(form.watch("unitPrice") || "0")
+                        const sellingPrice = parseFloat(form.watch("sellingPrice") || "0")
+                        const profit = sellingPrice - unitPrice
+                        return profit >= 0 ? "text-green-600" : "text-red-600"
+                      })()}`}>
+                        ₹{(() => {
+                          const unitPrice = parseFloat(form.watch("unitPrice") || "0")
+                          const sellingPrice = parseFloat(form.watch("sellingPrice") || "0")
+                          return (sellingPrice - unitPrice).toFixed(2)
+                        })()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-base font-medium">Profit %:</span>
+                      <span className={`text-xl font-bold ${(() => {
+                        const unitPrice = parseFloat(form.watch("unitPrice") || "0")
+                        const sellingPrice = parseFloat(form.watch("sellingPrice") || "0")
+                        const profitPercentage = unitPrice > 0 ? ((sellingPrice - unitPrice) / unitPrice) * 100 : 0
+                        return profitPercentage >= 0 ? "text-green-600" : "text-red-600"
+                      })()}`}>
+                        {(() => {
+                          const unitPrice = parseFloat(form.watch("unitPrice") || "0")
+                          const sellingPrice = parseFloat(form.watch("sellingPrice") || "0")
+                          const profitPercentage = unitPrice > 0 ? ((sellingPrice - unitPrice) / unitPrice) * 100 : 0
+                          return `${profitPercentage.toFixed(1)}%`
+                        })()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Selling Price - Unit Price = Profit
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Action Buttons */}

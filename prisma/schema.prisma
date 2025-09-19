@@ -8,17 +8,20 @@ datasource db {
 }
 
 model Stock {
-  id        String   @id @default(cuid())
-  stockID   String   @unique // Auto-generated unique 5-character ID
-  itemCode  String?  // Optional field
-  itemName  String
-  category  String
-  color     String   @default("Not Specified")
-  quantity  Int
-  unitPrice Float
-  supplier  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  stockID          String   @unique // Auto-generated unique 5-character ID
+  itemCode         String?  // Optional field
+  itemName         String
+  category         String
+  color            String   @default("Not Specified")
+  quantity         Int
+  unitPrice        Float    // Cost price (purchase price)
+  sellingPrice     Float?   // Selling price
+  profitAmount     Float?   // Calculated profit amount (sellingPrice - unitPrice)
+  profitPercentage Float?   // Calculated profit percentage ((profitAmount / unitPrice) * 100)
+  supplier         String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   // Relations
   purchaseItems PurchaseItem[]
@@ -67,7 +70,7 @@ model PurchaseItem {
 
   // Relations
   purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  stock    Stock    @relation(fields: [stockId], references: [id])
+  stock    Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
   @@map("purchase_items")
 }
