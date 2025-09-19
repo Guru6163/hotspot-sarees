@@ -54,6 +54,7 @@ type AddStockFormValues = z.infer<typeof addStockFormSchema>
 
 export default function AddStockPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [lastCreatedStock, setLastCreatedStock] = React.useState<{stockID: string, itemName: string} | null>(null)
   
   const form = useForm<AddStockFormValues>({
     resolver: zodResolver(addStockFormSchema),
@@ -94,9 +95,13 @@ export default function AddStockPage() {
       const result = await response.json()
 
       if (result.success) {
+        setLastCreatedStock({
+          stockID: result.data.stockID,
+          itemName: result.data.itemName
+        })
         toast.success("Stock added successfully!", {
-          description: `${result.data.itemName} has been added to inventory`,
-          duration: 4000,
+          description: `${result.data.itemName} has been added to inventory with Stock ID: ${result.data.stockID}`,
+          duration: 6000,
         })
         form.reset()
       } else {
@@ -153,6 +158,37 @@ export default function AddStockPage() {
               Add new inventory items to the warehouse stock.
             </p>
           </div>
+
+          {/* Success Card - Show when stock is created */}
+          {lastCreatedStock && (
+            <div className="mb-6">
+              <div className="rounded-lg border border-green-200 bg-green-50 p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                    <Package className="h-4 w-4 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-green-800">Stock Added Successfully!</h3>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-green-700">
+                    <span className="font-medium">Item:</span> {lastCreatedStock.itemName}
+                  </p>
+                  <p className="text-green-700">
+                    <span className="font-medium">Stock ID:</span> 
+                    <span className="ml-2 rounded bg-green-100 px-2 py-1 font-mono text-sm font-bold text-green-800">
+                      {lastCreatedStock.stockID}
+                    </span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setLastCreatedStock(null)}
+                  className="mt-3 text-sm text-green-600 hover:text-green-800 underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

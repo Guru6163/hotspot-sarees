@@ -5,7 +5,6 @@ import {
   Search, 
   Filter, 
   Download, 
-  Edit,
   Trash2,
   Package,
   AlertTriangle,
@@ -85,20 +84,14 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { getStocks, updateStock, deleteStock, type Stock } from "@/lib/api/stock"
+import { getStocks, deleteStock, type Stock } from "@/lib/api/stock"
 import JsBarcode from "jsbarcode"
-
-// Update quantity form schema
-const updateQuantitySchema = z.object({
-  quantity: z.string().min(1, "Quantity is required"),
-})
 
 // Print barcode form schema
 const printBarcodeSchema = z.object({
   quantity: z.string().min(1, "Number of stickers is required"),
 })
 
-type UpdateQuantityFormValues = z.infer<typeof updateQuantitySchema>
 type PrintBarcodeFormValues = z.infer<typeof printBarcodeSchema>
 
 export default function StockManagementPage() {
@@ -111,21 +104,12 @@ export default function StockManagementPage() {
   const [totalItems, setTotalItems] = React.useState(0)
   
   // Modal states
-  const [updateModalOpen, setUpdateModalOpen] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [barcodeModalOpen, setBarcodeModalOpen] = React.useState(false)
   const [selectedStock, setSelectedStock] = React.useState<Stock | null>(null)
-  const [updating, setUpdating] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const [generatingBarcode, setGeneratingBarcode] = React.useState(false)
   const [barcodePreview, setBarcodePreview] = React.useState<string>("")
-
-  const form = useForm<UpdateQuantityFormValues>({
-    resolver: zodResolver(updateQuantitySchema),
-    defaultValues: {
-      quantity: "",
-    },
-  })
 
   const barcodeForm = useForm<PrintBarcodeFormValues>({
     resolver: zodResolver(printBarcodeSchema),
@@ -217,42 +201,6 @@ export default function StockManagementPage() {
     window.URL.revokeObjectURL(url)
   }
 
-  // Handle update quantity
-  const handleUpdateQuantity = (stock: Stock) => {
-    setSelectedStock(stock)
-    form.setValue("quantity", stock.quantity.toString())
-    setUpdateModalOpen(true)
-  }
-
-  const onUpdateSubmit = async (data: UpdateQuantityFormValues) => {
-    if (!selectedStock) return
-    
-    setUpdating(true)
-    try {
-      const response = await updateStock(selectedStock.id, {
-        quantity: parseInt(data.quantity),
-      })
-
-      if (response.success) {
-        toast.success("Stock updated successfully!", {
-          description: `${selectedStock.itemName} quantity updated to ${data.quantity}`,
-        })
-        setUpdateModalOpen(false)
-        fetchStocks() // Refresh data
-      } else {
-        toast.error("Failed to update stock", {
-          description: 'error' in response ? response.error : 'Unknown error',
-        })
-      }
-    } catch (error) {
-      console.error('Error updating stock:', error)
-      toast.error("Network error", {
-        description: "Failed to update stock",
-      })
-    } finally {
-      setUpdating(false)
-    }
-  }
 
   // Handle delete
   const handleDelete = (stock: Stock) => {
@@ -262,6 +210,14 @@ export default function StockManagementPage() {
 
   // Handle print barcodes
   const handlePrintBarcodes = (stock: Stock) => {
+    // Check if stock quantity is 0
+    if (stock.quantity === 0) {
+      toast.error("Cannot generate barcodes", {
+        description: "Stock quantity is 0. Please add stock before generating barcodes.",
+      })
+      return
+    }
+    
     setSelectedStock(stock)
     setBarcodeModalOpen(true)
     generateBarcodePreview(stock)
@@ -270,16 +226,21 @@ export default function StockManagementPage() {
   // Generate barcode preview for modal
   const generateBarcodePreview = (stock: Stock) => {
     try {
-      // Create barcode text using only product name
-      const barcodeText = stock.itemName
+      // Create barcode text using StockID
+      const barcodeText = stock.stockID
       const canvas = document.createElement("canvas")
+      
+      // Set higher resolution for better quality
+      canvas.width = 300
+      canvas.height = 80
       
       JsBarcode(canvas, barcodeText, {
         format: "CODE128",
-        width: 1.5,
-        height: 30,
+        width: 2,
+        height: 50,
         displayValue: false,
-        margin: 0,
+        background: "#ffffff",
+        lineColor: "#000000"
       })
       
       setBarcodePreview(canvas.toDataURL("image/png"))
@@ -294,6 +255,15 @@ export default function StockManagementPage() {
     
     setGeneratingBarcode(true)
     try {
+      // Check if stock quantity is 0
+      if (selectedStock.quantity === 0) {
+        toast.error("Cannot generate barcodes", {
+          description: "Stock quantity is 0. Please add stock before generating barcodes.",
+        })
+        setGeneratingBarcode(false)
+        return
+      }
+      
       const quantity = parseInt(data.quantity)
       
       // Validate quantity
@@ -305,7 +275,7 @@ export default function StockManagementPage() {
         return
       }
       
-      const barcodeText = selectedStock.itemName // Use only product name for barcode
+      const barcodeText = selectedStock.stockID // Use StockID for barcode
       
       // 3-inch thermal printer specifications
       // 3 inches = 76.2mm, at 203 DPI (typical thermal printer)
@@ -314,7 +284,7 @@ export default function StockManagementPage() {
       // 25x50mm sticker size at 203 DPI
       const stickerHeight = 406 // 50mm at 203 DPI
       
-      // Create main canvas for thermal printer
+      // Create main canvas for thermal printer with higher resolution
       const canvas = document.createElement("canvas")
       const ctx = canvas.getContext("2d")
       if (!ctx) {
@@ -322,12 +292,16 @@ export default function StockManagementPage() {
       }
 
       // Set canvas size for thermal printer - allow for all requested stickers
-      canvas.width = thermalWidth
-      canvas.height = quantity * stickerHeight
+      // Use higher resolution for better quality
+      canvas.width = thermalWidth * 2 // Double resolution
+      canvas.height = quantity * stickerHeight * 2 // Double resolution
       
-      // White background
+      // Scale the context for higher resolution
+      ctx.scale(2, 2)
+      
+      // White background (scaled coordinates)
       ctx.fillStyle = "#ffffff"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.fillRect(0, 0, thermalWidth, quantity * stickerHeight)
       
       // Generate stickers
       for (let i = 0; i < quantity; i++) {
@@ -336,56 +310,48 @@ export default function StockManagementPage() {
         // Calculate center position for content
         const centerX = thermalWidth / 2
         
-        // Product information above barcode
+        // Product information above barcode - simplified
         ctx.fillStyle = "#000000"
         ctx.textAlign = "center"
         
-        // Product name (truncated if too long)
+        // Product name and color on same line (truncated if too long)
         let itemName = selectedStock.itemName
         if (itemName.length > 15) {
           itemName = itemName.substring(0, 12) + "..."
         }
         
-        ctx.font = "bold 10px Arial"
-        ctx.fillText(itemName, centerX, y + 15)
+        const colorText = selectedStock.color && selectedStock.color !== "Not Specified" 
+          ? ` - ${selectedStock.color.toUpperCase()}` 
+          : ""
         
-        // Category
-        ctx.font = "8px Arial"
-        ctx.fillText(selectedStock.category.toUpperCase(), centerX, y + 30)
+        ctx.font = "bold 11px Arial"
+        ctx.fillText(`${itemName}${colorText}`, centerX, y + 15)
         
-        // Color (if available and not "Not Specified")
-        if (selectedStock.color && selectedStock.color !== "Not Specified") {
-          ctx.fillText(selectedStock.color.toUpperCase(), centerX, y + 42)
-        }
-        
-        // Create barcode for this sticker
+        // Create barcode for this sticker with higher quality
         const barcodeCanvas = document.createElement("canvas")
+        // Set higher resolution for better quality
+        barcodeCanvas.width = 400
+        barcodeCanvas.height = 100
+        
         JsBarcode(barcodeCanvas, barcodeText, {
           format: "CODE128",
-          width: 1.5, // Thinner bars for thermal printer
-          height: 30, // Shorter height for 25mm width
+          width: 2, // Slightly thicker bars for better readability
+          height: 50, // Taller barcode for better scanning
           displayValue: false, // Don't show text below barcode
           margin: 0,
+          background: "#ffffff",
+          lineColor: "#000000"
         })
         
-        // Center the barcode
+        // Center the barcode (reduced gap from text)
         const barcodeX = centerX - barcodeCanvas.width / 2
-        const barcodeY = y + 55
+        const barcodeY = y + 25
         ctx.drawImage(barcodeCanvas, barcodeX, barcodeY)
-        
-        // Barcode content below barcode (smaller text)
-        ctx.font = "6px Arial"
-        ctx.fillText(`Code: ${barcodeText}`, centerX, y + 95)
-        
-        // Item code if available
-        if (selectedStock.itemCode) {
-          ctx.fillText(selectedStock.itemCode, centerX, y + 105)
-        }
       }
 
       // Download the image
       const link = document.createElement("a")
-      link.download = `thermal-stickers-${selectedStock.itemCode || selectedStock.id}-${quantity}pcs.png`
+      link.download = `thermal-stickers-${selectedStock.stockID}-${quantity}pcs.png`
       link.href = canvas.toDataURL("image/png")
       link.click()
 
@@ -541,7 +507,7 @@ export default function StockManagementPage() {
                   <div className="flex items-center gap-2 min-w-[300px]">
                     <Search className="h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search by item name, code, or supplier..."
+                      placeholder="Search by Stock ID, item name, code, or supplier..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="max-w-sm"
@@ -591,6 +557,7 @@ export default function StockManagementPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Stock ID</TableHead>
                           <TableHead>Item Code</TableHead>
                           <TableHead>Item Name</TableHead>
                           <TableHead>Category</TableHead>
@@ -607,6 +574,11 @@ export default function StockManagementPage() {
                         {filteredStocks.length > 0 ? (
                           filteredStocks.map((item) => (
                             <TableRow key={item.id}>
+                              <TableCell className="font-mono font-bold text-primary">
+                                <span className="rounded bg-primary/10 px-2 py-1 text-xs">
+                                  {item.stockID}
+                                </span>
+                              </TableCell>
                               <TableCell className="font-mono">{item.itemCode || "N/A"}</TableCell>
                               <TableCell className="font-medium">{item.itemName}</TableCell>
                               <TableCell className="capitalize">{item.category}</TableCell>
@@ -629,17 +601,10 @@ export default function StockManagementPage() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    onClick={() => handleUpdateQuantity(item)}
-                                    title="Update Quantity"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
                                     onClick={() => handlePrintBarcodes(item)}
                                     title="Print Thermal Stickers"
                                     className="text-blue-600 hover:text-blue-700"
+                                    disabled={item.quantity === 0}
                                   >
                                     <QrCode className="h-4 w-4" />
                                   </Button>
@@ -658,7 +623,7 @@ export default function StockManagementPage() {
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                               No stock items found.
                             </TableCell>
                           </TableRow>
@@ -699,58 +664,6 @@ export default function StockManagementPage() {
           </Card>
         </div>
 
-        {/* Update Quantity Modal */}
-        <Dialog open={updateModalOpen} onOpenChange={setUpdateModalOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Update Stock Quantity</DialogTitle>
-              <DialogDescription>
-                Update the quantity for {selectedStock?.itemName}
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onUpdateSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="quantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>New Quantity</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="Enter new quantity"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setUpdateModalOpen(false)}
-                    disabled={updating}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={updating}>
-                    {updating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      "Update Quantity"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -758,7 +671,7 @@ export default function StockManagementPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete <strong>{selectedStock?.itemName}</strong> from your inventory.
+                This will permanently delete <strong>{selectedStock?.itemName}</strong> (Stock ID: {selectedStock?.stockID}) from your inventory.
                 This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -796,7 +709,7 @@ export default function StockManagementPage() {
                 Print Thermal Stickers
               </DialogTitle>
               <DialogDescription>
-                Generate thermal printer stickers for <strong>{selectedStock?.itemName}</strong>
+                Generate thermal printer stickers for <strong>{selectedStock?.itemName}</strong> (Stock ID: {selectedStock?.stockID})
                 <br />
                 <span className="text-xs text-muted-foreground">
                   Optimized for 3-inch thermal printer (25x50mm stickers)
@@ -847,7 +760,7 @@ export default function StockManagementPage() {
                         />
                       </div>
                       <div className="text-xs text-gray-500 mt-1 font-mono">
-                        {selectedStock?.itemName}
+                        Stock ID: {selectedStock?.stockID}
                       </div>
                     </div>
                   )}
@@ -856,11 +769,11 @@ export default function StockManagementPage() {
                     <div><strong>Item:</strong> {selectedStock?.itemName}</div>
                     <div><strong>Category:</strong> {selectedStock?.category}</div>
                     <div><strong>Color:</strong> {selectedStock?.color}</div>
-                    <div><strong>Stock ID:</strong> {selectedStock?.id}</div>
+                    <div><strong>Stock ID:</strong> {selectedStock?.stockID}</div>
                     <div><strong>Item Code:</strong> {selectedStock?.itemCode || "N/A"}</div>
-                    <div><strong>Format:</strong> CODE128 Barcode with Product Name</div>
+                    <div><strong>Format:</strong> CODE128 Barcode with Stock ID</div>
                     <div><strong>Size:</strong> 25x50mm (3-inch thermal printer)</div>
-                    <div><strong>Layout:</strong> Product info above barcode</div>
+                    <div><strong>Layout:</strong> Product name and color on one line, Stock ID in barcode</div>
                   </div>
                 </div>
 

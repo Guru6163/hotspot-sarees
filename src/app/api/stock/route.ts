@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+// Function to generate a unique 5-character stockID
+async function generateStockID(): Promise<string> {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let stockID: string
+  let isUnique = false
+  
+  while (!isUnique) {
+    stockID = ''
+    for (let i = 0; i < 5; i++) {
+      stockID += characters.charAt(Math.floor(Math.random() * characters.length))
+    }
+    
+    // Check if this stockID already exists
+    const existingStock = await prisma.stock.findUnique({
+      where: { stockID }
+    })
+    
+    if (!existingStock) {
+      isUnique = true
+    }
+  }
+  
+  return stockID!
+}
+
 // Validation schema for creating stock
 const createStockSchema = z.object({
   itemCode: z.string().optional(),
@@ -33,6 +58,7 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { itemName: { contains: search, mode: 'insensitive' } },
         { itemCode: { contains: search, mode: 'insensitive' } },
+        { stockID: { contains: search, mode: 'insensitive' } },
         { supplier: { contains: search, mode: 'insensitive' } },
       ]
     }
@@ -74,9 +100,15 @@ export async function POST(request: NextRequest) {
     // Validate the request body
     const validatedData = createStockSchema.parse(body)
 
-    // Create the stock item
+    // Generate unique stockID
+    const stockID = await generateStockID()
+
+    // Create the stock item with generated stockID
     const stock = await prisma.stock.create({
-      data: validatedData,
+      data: {
+        ...validatedData,
+        stockID,
+      },
     })
 
     return NextResponse.json({

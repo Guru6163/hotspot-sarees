@@ -1,6 +1,7 @@
 // Stock API utility functions
 export interface Stock {
   id: string
+  stockID: string
   itemCode: string | null
   itemName: string
   category: string
@@ -52,7 +53,7 @@ export interface StockResponse {
 export interface ApiError {
   success: false
   error: string
-  details?: any[]
+  details?: unknown[]
 }
 
 // Create a new stock item
