@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { BarcodeScanner } from "@/components/barcode-scanner";
 
 interface CartItem {
   stock: Stock;
@@ -80,6 +81,9 @@ export default function POSPage() {
     card: 0,
     upi: 0,
   });
+
+  // Barcode scanner state
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Focus on barcode input when component mounts
   useEffect(() => {
@@ -203,6 +207,13 @@ export default function POSPage() {
   const handleBarcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleBarcodeScan(barcodeInput);
+  };
+
+  const handleBarcodeScanned = (barcode: string) => {
+    // Set the scanned barcode in the input field
+    setBarcodeInput(barcode);
+    // Automatically process the scanned barcode
+    handleBarcodeScan(barcode);
   };
 
   const handleProductSelect = (stock: Stock) => {
@@ -491,12 +502,17 @@ export default function POSPage() {
                           <Input
                             ref={barcodeInputRef}
                             type="text"
-                            placeholder="Scan barcode..."
+                            placeholder="Scan barcode or enter manually..."
                             value={barcodeInput}
                             onChange={(e) => setBarcodeInput(e.target.value)}
                             disabled={isLoading}
                             className="flex-1 h-10"
                             autoComplete="off"
+                          />
+                          <BarcodeScanner
+                            onScan={handleBarcodeScanned}
+                            isOpen={isScannerOpen}
+                            onOpenChange={setIsScannerOpen}
                           />
                           <Button
                             type="submit"
