@@ -114,3 +114,15 @@ export async function deleteStock(id: string): Promise<{ success: boolean; messa
 
   return response.json()
 }
+
+// Get stock item by stockID (barcode)
+export async function getStockByBarcode(stockID: string): Promise<StockResponse | ApiError> {
+  const response = await fetch(`/api/stock/barcode/${stockID}`)
+  return response.json()
+}
+
+// Search stocks by name or item code
+export async function searchStocks(query: string): Promise<StockListResponse | ApiError> {
+  const response = await fetch(`/api/stock?search=${encodeURIComponent(query)}&limit=10`)
+  return response.json()
+}

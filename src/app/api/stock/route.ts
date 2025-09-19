@@ -56,10 +56,12 @@ export async function GET(request: NextRequest) {
     }
     if (search) {
       where.OR = [
+        // Exact matches first (highest priority)
+        { itemName: { equals: search, mode: 'insensitive' } },
+        // Starts with matches (second priority)
+        { itemName: { startsWith: search, mode: 'insensitive' } },
+        // Contains matches (lowest priority)
         { itemName: { contains: search, mode: 'insensitive' } },
-        { itemCode: { contains: search, mode: 'insensitive' } },
-        { stockID: { contains: search, mode: 'insensitive' } },
-        { supplier: { contains: search, mode: 'insensitive' } },
       ]
     }
 

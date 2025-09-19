@@ -68,27 +68,15 @@ const data = {
     },
     {
       title: "Billing",
-      url: "#",
+      url: "/pos",
       icon: CreditCard,
       items: [
         {
+          title: "POS",
+          url: "/pos",
+        },
+        {
           title: "Invoices",
-          url: "#",
-        },
-        {
-          title: "Payment History",
-          url: "#",
-        },
-        {
-          title: "Outstanding Bills",
-          url: "#",
-        },
-        {
-          title: "Create Invoice",
-          url: "#",
-        },
-        {
-          title: "Payment Methods",
           url: "#",
         },
       ],

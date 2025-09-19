@@ -20,5 +20,54 @@ model Stock {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  purchaseItems PurchaseItem[]
+
   @@map("stocks")
+}
+
+model Purchase {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique // Auto-generated invoice number
+  customerName  String   @default("Walk-in Customer")
+  customerPhone String?
+  customerEmail String?
+  notes         String?
+  
+  // Pricing
+  subtotal      Float
+  discountType  String? // "percentage" or "price"
+  discountValue Float?
+  discountAmount Float  @default(0)
+  taxAmount     Float   @default(0)
+  totalAmount   Float
+  
+  // Payment
+  paymentMethod String   // "cash", "card", "upi"
+  paymentStatus String   @default("completed") // "pending", "completed", "failed"
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  items PurchaseItem[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String
+  stockId    String
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+  createdAt  DateTime @default(now())
+
+  // Relations
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  stock    Stock    @relation(fields: [stockId], references: [id])
+
+  @@map("purchase_items")
 }
