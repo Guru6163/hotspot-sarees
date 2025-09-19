@@ -3,6 +3,7 @@
 import * as React from "react"
 import { CalendarIcon, Search, Filter, Download, Eye } from "lucide-react"
 import { format } from "date-fns"
+import { toast } from "sonner"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { Button } from "@/components/ui/button"
@@ -49,67 +50,36 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-
-// Sample transport data
-const sampleTransportData = [
-  {
-    id: 1,
-    inDate: new Date("2024-01-15"),
-    numberOfBundles: 25,
-    freightCharges: 1500.00,
-    invoiceNo: "INV-2024-001",
-    amount: 12000.00,
-    gst: 2160.00,
-    totalAmount: 14160.00
-  },
-  {
-    id: 2,
-    inDate: new Date("2024-01-20"),
-    numberOfBundles: 18,
-    freightCharges: 1200.00,
-    invoiceNo: "INV-2024-002",
-    amount: 9500.00,
-    gst: 1710.00,
-    totalAmount: 11210.00
-  },
-  {
-    id: 3,
-    inDate: new Date("2024-02-05"),
-    numberOfBundles: 32,
-    freightCharges: 2000.00,
-    invoiceNo: "INV-2024-003",
-    amount: 15800.00,
-    gst: 2844.00,
-    totalAmount: 18644.00
-  },
-  {
-    id: 4,
-    inDate: new Date("2024-02-12"),
-    numberOfBundles: 22,
-    freightCharges: 1350.00,
-    invoiceNo: "INV-2024-004",
-    amount: 11200.00,
-    gst: 2016.00,
-    totalAmount: 13216.00
-  },
-  {
-    id: 5,
-    inDate: new Date("2024-02-18"),
-    numberOfBundles: 28,
-    freightCharges: 1750.00,
-    invoiceNo: "INV-2024-005",
-    amount: 13500.00,
-    gst: 2430.00,
-    totalAmount: 15930.00
-  }
-]
+import { getTransports, Transport } from "@/lib/api/transport"
 
 export default function TransportHistoryPage() {
-  const [data, setData] = React.useState(sampleTransportData)
-  const [filteredData, setFilteredData] = React.useState(sampleTransportData)
+  const [data, setData] = React.useState<Transport[]>([])
+  const [filteredData, setFilteredData] = React.useState<Transport[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
   const [dateFrom, setDateFrom] = React.useState<Date>()
   const [dateTo, setDateTo] = React.useState<Date>()
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [totalRecords, setTotalRecords] = React.useState(0)
+
+  // Fetch transport data on component mount
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        const response = await getTransports({ limit: 1000 }) // Get all records for now
+        setData(response.transports)
+        setFilteredData(response.transports)
+        setTotalRecords(response.pagination.total)
+      } catch (error) {
+        console.error("Error fetching transport data:", error)
+        toast.error("Failed to fetch transport data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   // Filter function
   React.useEffect(() => {
@@ -125,10 +95,10 @@ export default function TransportHistoryPage() {
 
     // Date range filter
     if (dateFrom) {
-      filtered = filtered.filter(item => item.inDate >= dateFrom)
+      filtered = filtered.filter(item => new Date(item.inDate) >= dateFrom)
     }
     if (dateTo) {
-      filtered = filtered.filter(item => item.inDate <= dateTo)
+      filtered = filtered.filter(item => new Date(item.inDate) <= dateTo)
     }
 
     setFilteredData(filtered)
@@ -146,7 +116,7 @@ export default function TransportHistoryPage() {
     const csvContent = [
       headers.join(","),
       ...filteredData.map(row => [
-        format(row.inDate, "yyyy-MM-dd"),
+        format(new Date(row.inDate), "yyyy-MM-dd"),
         row.invoiceNo,
         row.numberOfBundles,
         row.freightCharges,
@@ -273,7 +243,7 @@ export default function TransportHistoryPage() {
 
                 {/* Results Count */}
                 <div className="text-sm text-muted-foreground">
-                  Showing {filteredData.length} of {data.length} records
+                  {isLoading ? "Loading..." : `Showing ${filteredData.length} of ${totalRecords} records`}
                 </div>
               </div>
 
@@ -292,10 +262,16 @@ export default function TransportHistoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredData.length > 0 ? (
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          Loading transport records...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredData.length > 0 ? (
                       filteredData.map((item) => (
                         <TableRow key={item.id}>
-                          <TableCell>{format(item.inDate, "dd/MM/yyyy")}</TableCell>
+                          <TableCell>{format(new Date(item.inDate), "dd/MM/yyyy")}</TableCell>
                           <TableCell className="font-medium">{item.invoiceNo}</TableCell>
                           <TableCell className="text-right">{item.numberOfBundles}</TableCell>
                           <TableCell className="text-right">₹{item.freightCharges.toFixed(2)}</TableCell>

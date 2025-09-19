@@ -6,6 +6,8 @@ import { format } from "date-fns"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { Button } from "@/components/ui/button"
@@ -45,6 +47,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { createTransport } from "@/lib/api/transport"
 
 const transportFormSchema = z.object({
   inDate: z.date({
@@ -61,6 +64,8 @@ type TransportFormValues = z.infer<typeof transportFormSchema>
 
 export default function AddNewTransportEntryPage() {
   const [totalAmount, setTotalAmount] = React.useState<number>(0)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const router = useRouter()
 
   const form = useForm<TransportFormValues>({
     resolver: zodResolver(transportFormSchema),
@@ -83,12 +88,31 @@ export default function AddNewTransportEntryPage() {
     setTotalAmount(amountNum + gstNum)
   }, [amount, gst])
 
-  function onSubmit(data: TransportFormValues) {
-    console.log("Transport form data:", { ...data, totalAmount })
-    // Here you would typically send the data to your backend
-    alert("Transport entry submitted successfully!")
-    form.reset()
-    setTotalAmount(0)
+  async function onSubmit(data: TransportFormValues) {
+    try {
+      setIsSubmitting(true)
+      
+      const transportData = {
+        inDate: data.inDate.toISOString(),
+        numberOfBundles: parseInt(data.numberOfBundles),
+        freightCharges: parseFloat(data.freightCharges),
+        invoiceNo: data.invoiceNo,
+        amount: parseFloat(data.amount),
+        gst: parseFloat(data.gst),
+      }
+
+      await createTransport(transportData)
+      
+      toast.success("Transport entry created successfully!")
+      form.reset()
+      setTotalAmount(0)
+      router.push("/transport/history")
+    } catch (error) {
+      console.error("Error creating transport entry:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to create transport entry")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -286,8 +310,8 @@ export default function AddNewTransportEntryPage() {
                     </div>
 
                     <div className="flex gap-4">
-                      <Button type="submit" className="flex-1">
-                        Submit Transport Entry
+                      <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                        {isSubmitting ? "Creating..." : "Submit Transport Entry"}
                       </Button>
                       <Button
                         type="button"

@@ -74,3 +74,19 @@ model PurchaseItem {
 
   @@map("purchase_items")
 }
+
+model Transport {
+  id               String   @id @default(cuid())
+  inDate           DateTime
+  numberOfBundles  Int
+  freightCharges   Float
+  invoiceNo        String   @unique
+  amount           Float
+  gst              Float
+  totalAmount      Float
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("transports")
+}
