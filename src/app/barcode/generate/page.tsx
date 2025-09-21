@@ -681,7 +681,7 @@ export default function BarcodeGeneratePage() {
                         <p><strong>Print Ready:</strong> A4 sheet & TSC TE244 thermal printer (2-column)</p>
                       </div>
                       <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                        <p><strong>💡 Tip:</strong> Use "TSC TE244 (2-Col)" button for thermal printer with 2-column layout. Standard size (31×20mm) is perfect for saree tags and meets retail scanning requirements.</p>
+                        <p><strong>💡 Tip:</strong> Use &quot;TSC TE244 (2-Col)&quot; button for thermal printer with 2-column layout. Standard size (31×20mm) is perfect for saree tags and meets retail scanning requirements.</p>
                       </div>
                     </div>
                   )}

@@ -49,7 +49,7 @@ export function BarcodeScanner({ onScan, isOpen, onOpenChange }: BarcodeScannerP
     try {
       // Start decoding from the video element
       await readerRef.current.decodeFromVideoDevice(
-        selectedDeviceId || undefined,
+        selectedDeviceId || null,
         videoRef.current,
         (result, error) => {
           if (result) {
