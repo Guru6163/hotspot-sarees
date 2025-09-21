@@ -325,34 +325,23 @@ export default function StockManagementPage() {
         // Calculate center position for content within this column
         const centerX = x + columnWidth / 2
         
-        // Product information above barcode - optimized for smaller width
+        // Set text properties for proper centering
         ctx.fillStyle = "#000000"
         ctx.textAlign = "center"
         
-        // Product name and color on same line (truncated for smaller column width)
-        let itemName = selectedStock.itemName
-        if (itemName.length > 12) {
-          itemName = itemName.substring(0, 10) + "..."
-        }
+        // 1. Stock ID at the top
+        ctx.font = "bold 10px Arial"
+        ctx.fillText(selectedStock.stockID, centerX, y + 12)
         
-        const colorText = selectedStock.color && selectedStock.color !== "Not Specified" 
-          ? ` - ${selectedStock.color.toUpperCase()}` 
-          : ""
-        
-        // Use smaller font for 2-column layout
-        ctx.font = "bold 9px Arial"
-        ctx.fillText(`${itemName}${colorText}`, centerX, y + 12)
-        
-        // Create barcode for this sticker with higher quality
+        // 2. Create barcode for this sticker
         const barcodeCanvas = document.createElement("canvas")
-        // Set higher resolution for better quality
-        barcodeCanvas.width = 300 // Smaller width for 2-column layout
-        barcodeCanvas.height = 80
+        barcodeCanvas.width = 280 // Width for 2-column layout
+        barcodeCanvas.height = 60
         
         JsBarcode(barcodeCanvas, barcodeText, {
           format: "CODE128",
-          width: 1.5, // Slightly thinner bars for smaller width
-          height: 40, // Shorter barcode for 2-column layout
+          width: 1.5, // Bar width for 2-column layout
+          height: 35, // Barcode height
           displayValue: false, // Don't show text below barcode
           margin: 0,
           background: "#ffffff",
@@ -361,8 +350,26 @@ export default function StockManagementPage() {
         
         // Center the barcode within the column
         const barcodeX = centerX - barcodeCanvas.width / 2
-        const barcodeY = y + 20
+        const barcodeY = y + 18
         ctx.drawImage(barcodeCanvas, barcodeX, barcodeY)
+        
+        // 3. Product name - category - price at the bottom
+        let itemName = selectedStock.itemName
+        if (itemName.length > 15) {
+          itemName = itemName.substring(0, 12) + "..."
+        }
+        
+        const category = selectedStock.category || "N/A"
+        const price = `₹${selectedStock.unitPrice}`
+        
+        // Create the product line
+        let productLine = `${itemName} - ${category} - ${price}`
+        if (productLine.length > 30) {
+          productLine = `${itemName.substring(0, 8)}... - ${category} - ${price}`
+        }
+        
+        ctx.font = "bold 8px Arial"
+        ctx.fillText(productLine, centerX, y + 58)
       }
 
       // Download the image

@@ -232,29 +232,37 @@ export default function BarcodeGeneratePage() {
       // Calculate center position for content within this column
       const centerX = x + columnWidth / 2
       
-      // Create barcode for this sticker with higher quality
+      // Set text properties for proper centering
+      ctx.fillStyle = "#000000"
+      ctx.textAlign = "center"
+      
+      // 1. Barcode text at the top
+      ctx.font = "bold 10px Arial"
+      ctx.fillText(form.getValues("text"), centerX, y + 12)
+      
+      // 2. Create barcode for this sticker
       const barcodeCanvas = document.createElement("canvas")
-      // Set higher resolution for better quality
-      barcodeCanvas.width = 300 // Smaller width for 2-column layout
-      barcodeCanvas.height = 80
+      barcodeCanvas.width = 280 // Width for 2-column layout
+      barcodeCanvas.height = 60
       
       JsBarcode(barcodeCanvas, form.getValues("text"), {
         format: form.getValues("format"),
-        width: 1.5, // Slightly thinner bars for smaller width
-        height: 40, // Shorter barcode for 2-column layout
-        displayValue: form.getValues("displayValue"),
-        fontSize: parseInt(form.getValues("fontSize")) - 2, // Smaller font for 2-column
-        textAlign: form.getValues("textAlign") as "left" | "center" | "right",
-        textPosition: form.getValues("textPosition") as "top" | "bottom",
+        width: 1.5, // Bar width for 2-column layout
+        height: 35, // Barcode height
+        displayValue: false, // Don't show text below barcode for cleaner look
+        margin: 0,
         background: form.getValues("background"),
-        lineColor: form.getValues("lineColor"),
-        margin: 0
+        lineColor: form.getValues("lineColor")
       })
       
       // Center the barcode within the column
       const barcodeX = centerX - barcodeCanvas.width / 2
-      const barcodeY = y + 20
+      const barcodeY = y + 18
       ctx.drawImage(barcodeCanvas, barcodeX, barcodeY)
+      
+      // 3. Additional info at the bottom
+      ctx.font = "bold 8px Arial"
+      ctx.fillText("Barcode Label", centerX, y + 58)
     }
 
     const link = document.createElement("a")
