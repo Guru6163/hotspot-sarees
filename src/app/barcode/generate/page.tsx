@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { QrCode, Download, Copy, RotateCcw } from "lucide-react"
+import { QrCode, Download, Copy, RotateCcw, Printer } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -46,6 +46,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { toast } from "sonner"
 
 const barcodeFormSchema = z.object({
   text: z.string().min(1, "Text/Code is required"),
@@ -265,10 +266,88 @@ export default function BarcodeGeneratePage() {
       ctx.fillText("Barcode Label", centerX, y + 58)
     }
 
-    const link = document.createElement("a")
-    link.download = `thermal-stickers-${form.getValues("text")}-${quantity}pcs-2col.png`
-    link.href = canvas.toDataURL("image/png")
-    link.click()
+    // Print directly to TSC TE244 thermal printer
+    const imageData = canvas.toDataURL("image/png")
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Thermal Stickers - ${form.getValues("text")}</title>
+        <style>
+          @page {
+            size: 76.2mm auto; /* TSC TE244: 3 inches (76.2mm) width */
+            margin: 0;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            width: 76.2mm; /* TSC TE244: 3 inches width */
+            background: white;
+          }
+          .sticker-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .sticker-image {
+            width: 100%;
+            height: auto;
+            max-width: 76.2mm; /* TSC TE244: 3 inches width */
+            image-rendering: pixelated; /* Better for thermal printers */
+          }
+          @media print {
+            body { 
+              margin: 0; 
+              padding: 0; 
+              width: 76.2mm;
+            }
+            .sticker-container { 
+              page-break-inside: avoid; 
+              width: 76.2mm;
+            }
+            .sticker-image {
+              width: 76.2mm;
+              height: auto;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="sticker-container">
+          <img src="${imageData}" alt="Thermal Stickers" class="sticker-image" />
+        </div>
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              setTimeout(function() {
+                window.close();
+              }, 1000);
+            }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `
+    
+    const printWindow = window.open('', '_blank', 'width=400,height=600')
+    if (printWindow) {
+      printWindow.document.write(printContent)
+      printWindow.document.close()
+      printWindow.focus()
+      setTimeout(() => {
+        printWindow.print()
+      }, 1000)
+    } else {
+      throw new Error("Could not open print window. Please check popup blockers.")
+    }
+    
+    toast.success("Thermal printer stickers sent to printer!", {
+      description: `Printing ${quantity} stickers for ${form.getValues("text")} (TSC TE244 - 2-column layout)`,
+      duration: 4000,
+    })
   }
 
   const copyToClipboard = async () => {
@@ -670,8 +749,8 @@ export default function BarcodeGeneratePage() {
                           A4 Sheet ({form.watch("quantity")} pcs)
                         </Button>
                         <Button onClick={downloadThermalStickers} className="flex-1">
-                          <Download className="h-4 w-4 mr-2" />
-                          TSC TE244 (2-Col)
+                          <Printer className="h-4 w-4 mr-2" />
+                          Print TSC TE244 (2-Col)
                         </Button>
                       </div>
                     </div>

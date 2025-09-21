@@ -292,6 +292,7 @@ export default function StockManagementPage() {
       
       // Calculate layout for 2-column printing
       const stickersPerRow = 2
+      // For TSC TE244: 1 sticker request = 1 row (2 stickers side by side)
       const totalRows = Math.ceil(quantity / stickersPerRow)
       
       // Create main canvas for thermal printer with higher resolution
@@ -304,7 +305,7 @@ export default function StockManagementPage() {
       // Set canvas size for thermal printer - 2-column layout
       // Use higher resolution for better quality
       canvas.width = thermalWidth * 2 // Double resolution
-      canvas.height = totalRows * (stickerHeight + rowSpacing) * 2 // Double resolution
+      canvas.height = totalRows * (stickerHeight + rowSpacing) * 2 // Double resolution - only for needed rows
       
       // Scale the context for higher resolution
       ctx.scale(2, 2)
@@ -372,14 +373,86 @@ export default function StockManagementPage() {
         ctx.fillText(productLine, centerX, y + 58)
       }
 
-      // Download the image
-      const link = document.createElement("a")
-      link.download = `thermal-stickers-${selectedStock.stockID}-${quantity}pcs.png`
-      link.href = canvas.toDataURL("image/png")
-      link.click()
+      // Print directly to TSC TE244 thermal printer
+      const imageData = canvas.toDataURL("image/png")
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Thermal Stickers - ${selectedStock.itemName}</title>
+          <style>
+            @page {
+              size: 76.2mm auto; /* TSC TE244: 3 inches (76.2mm) width */
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              font-family: Arial, sans-serif;
+              width: 76.2mm; /* TSC TE244: 3 inches width */
+              background: white;
+            }
+            .sticker-container {
+              width: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            }
+            .sticker-image {
+              width: 100%;
+              height: auto;
+              max-width: 76.2mm; /* TSC TE244: 3 inches width */
+              image-rendering: pixelated; /* Better for thermal printers */
+            }
+            @media print {
+              body { 
+                margin: 0; 
+                padding: 0; 
+                width: 76.2mm;
+              }
+              .sticker-container { 
+                page-break-inside: avoid; 
+                width: 76.2mm;
+              }
+              .sticker-image {
+                width: 76.2mm;
+                height: auto;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="sticker-container">
+            <img src="${imageData}" alt="Thermal Stickers" class="sticker-image" />
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() {
+                  window.close();
+                }, 1000);
+              }, 500);
+            };
+          </script>
+        </body>
+        </html>
+      `
+      
+      const printWindow = window.open('', '_blank', 'width=400,height=600')
+      if (printWindow) {
+        printWindow.document.write(printContent)
+        printWindow.document.close()
+        printWindow.focus()
+        setTimeout(() => {
+          printWindow.print()
+        }, 1000)
+      } else {
+        throw new Error("Could not open print window. Please check popup blockers.")
+      }
 
-      toast.success("Thermal printer stickers generated!", {
-        description: `Generated ${quantity} stickers for ${selectedStock.itemName} (TSC TE244 - 2-column layout)`,
+      toast.success("Thermal printer stickers sent to printer!", {
+        description: `Printing ${quantity} stickers for ${selectedStock.itemName} (TSC TE244 - 2-column layout)`,
         duration: 4000,
       })
       
