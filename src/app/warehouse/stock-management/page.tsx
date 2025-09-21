@@ -280,12 +280,19 @@ export default function StockManagementPage() {
       
       const barcodeText = selectedStock.stockID // Use StockID for barcode
       
-      // 3-inch thermal printer specifications
+      // TSC TE244 thermal printer specifications for 2-column printing
       // 3 inches = 76.2mm, at 203 DPI (typical thermal printer)
       const thermalWidth = 576 // 3 inches at 203 DPI
+      const columnWidth = thermalWidth / 2 // 288 pixels per column (36mm each)
+      const columnSpacing = 4 // 4 pixels spacing between columns
       
       // 25x50mm sticker size at 203 DPI
       const stickerHeight = 406 // 50mm at 203 DPI
+      const rowSpacing = 4 // 4 pixels spacing between rows
+      
+      // Calculate layout for 2-column printing
+      const stickersPerRow = 2
+      const totalRows = Math.ceil(quantity / stickersPerRow)
       
       // Create main canvas for thermal printer with higher resolution
       const canvas = document.createElement("canvas")
@@ -294,61 +301,67 @@ export default function StockManagementPage() {
         throw new Error("Could not create canvas context")
       }
 
-      // Set canvas size for thermal printer - allow for all requested stickers
+      // Set canvas size for thermal printer - 2-column layout
       // Use higher resolution for better quality
       canvas.width = thermalWidth * 2 // Double resolution
-      canvas.height = quantity * stickerHeight * 2 // Double resolution
+      canvas.height = totalRows * (stickerHeight + rowSpacing) * 2 // Double resolution
       
       // Scale the context for higher resolution
       ctx.scale(2, 2)
       
       // White background (scaled coordinates)
       ctx.fillStyle = "#ffffff"
-      ctx.fillRect(0, 0, thermalWidth, quantity * stickerHeight)
+      ctx.fillRect(0, 0, thermalWidth, totalRows * (stickerHeight + rowSpacing))
       
-      // Generate stickers
+      // Generate stickers in 2-column layout
       for (let i = 0; i < quantity; i++) {
-        const y = i * stickerHeight
+        const row = Math.floor(i / stickersPerRow)
+        const col = i % stickersPerRow
         
-        // Calculate center position for content
-        const centerX = thermalWidth / 2
+        // Calculate position for this sticker
+        const x = col * (columnWidth + columnSpacing)
+        const y = row * (stickerHeight + rowSpacing)
         
-        // Product information above barcode - simplified
+        // Calculate center position for content within this column
+        const centerX = x + columnWidth / 2
+        
+        // Product information above barcode - optimized for smaller width
         ctx.fillStyle = "#000000"
         ctx.textAlign = "center"
         
-        // Product name and color on same line (truncated if too long)
+        // Product name and color on same line (truncated for smaller column width)
         let itemName = selectedStock.itemName
-        if (itemName.length > 15) {
-          itemName = itemName.substring(0, 12) + "..."
+        if (itemName.length > 12) {
+          itemName = itemName.substring(0, 10) + "..."
         }
         
         const colorText = selectedStock.color && selectedStock.color !== "Not Specified" 
           ? ` - ${selectedStock.color.toUpperCase()}` 
           : ""
         
-        ctx.font = "bold 11px Arial"
-        ctx.fillText(`${itemName}${colorText}`, centerX, y + 15)
+        // Use smaller font for 2-column layout
+        ctx.font = "bold 9px Arial"
+        ctx.fillText(`${itemName}${colorText}`, centerX, y + 12)
         
         // Create barcode for this sticker with higher quality
         const barcodeCanvas = document.createElement("canvas")
         // Set higher resolution for better quality
-        barcodeCanvas.width = 400
-        barcodeCanvas.height = 100
+        barcodeCanvas.width = 300 // Smaller width for 2-column layout
+        barcodeCanvas.height = 80
         
         JsBarcode(barcodeCanvas, barcodeText, {
           format: "CODE128",
-          width: 2, // Slightly thicker bars for better readability
-          height: 50, // Taller barcode for better scanning
+          width: 1.5, // Slightly thinner bars for smaller width
+          height: 40, // Shorter barcode for 2-column layout
           displayValue: false, // Don't show text below barcode
           margin: 0,
           background: "#ffffff",
           lineColor: "#000000"
         })
         
-        // Center the barcode (reduced gap from text)
+        // Center the barcode within the column
         const barcodeX = centerX - barcodeCanvas.width / 2
-        const barcodeY = y + 25
+        const barcodeY = y + 20
         ctx.drawImage(barcodeCanvas, barcodeX, barcodeY)
       }
 
@@ -359,7 +372,7 @@ export default function StockManagementPage() {
       link.click()
 
       toast.success("Thermal printer stickers generated!", {
-        description: `Generated ${quantity} stickers for ${selectedStock.itemName} (3-inch thermal printer)`,
+        description: `Generated ${quantity} stickers for ${selectedStock.itemName} (TSC TE244 - 2-column layout)`,
         duration: 4000,
       })
       

@@ -186,6 +186,83 @@ export default function BarcodeGeneratePage() {
     link.click()
   }
 
+  const downloadThermalStickers = () => {
+    if (!generatedBarcode) return
+
+    const quantity = parseInt(form.getValues("quantity"))
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")
+    if (!ctx || !canvasRef.current) return
+
+    // TSC TE244 thermal printer specifications for 2-column printing
+    // 3 inches = 76.2mm, at 203 DPI (typical thermal printer)
+    const thermalWidth = 576 // 3 inches at 203 DPI
+    const columnWidth = thermalWidth / 2 // 288 pixels per column (36mm each)
+    const columnSpacing = 4 // 4 pixels spacing between columns
+    
+    // 25x50mm sticker size at 203 DPI
+    const stickerHeight = 406 // 50mm at 203 DPI
+    const rowSpacing = 4 // 4 pixels spacing between rows
+    
+    // Calculate layout for 2-column printing
+    const stickersPerRow = 2
+    const totalRows = Math.ceil(quantity / stickersPerRow)
+    
+    // Set canvas size for thermal printer - 2-column layout
+    // Use higher resolution for better quality
+    canvas.width = thermalWidth * 2 // Double resolution
+    canvas.height = totalRows * (stickerHeight + rowSpacing) * 2 // Double resolution
+    
+    // Scale the context for higher resolution
+    ctx.scale(2, 2)
+    
+    // White background (scaled coordinates)
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, thermalWidth, totalRows * (stickerHeight + rowSpacing))
+    
+    // Generate stickers in 2-column layout
+    for (let i = 0; i < quantity; i++) {
+      const row = Math.floor(i / stickersPerRow)
+      const col = i % stickersPerRow
+      
+      // Calculate position for this sticker
+      const x = col * (columnWidth + columnSpacing)
+      const y = row * (stickerHeight + rowSpacing)
+      
+      // Calculate center position for content within this column
+      const centerX = x + columnWidth / 2
+      
+      // Create barcode for this sticker with higher quality
+      const barcodeCanvas = document.createElement("canvas")
+      // Set higher resolution for better quality
+      barcodeCanvas.width = 300 // Smaller width for 2-column layout
+      barcodeCanvas.height = 80
+      
+      JsBarcode(barcodeCanvas, form.getValues("text"), {
+        format: form.getValues("format"),
+        width: 1.5, // Slightly thinner bars for smaller width
+        height: 40, // Shorter barcode for 2-column layout
+        displayValue: form.getValues("displayValue"),
+        fontSize: parseInt(form.getValues("fontSize")) - 2, // Smaller font for 2-column
+        textAlign: form.getValues("textAlign") as "left" | "center" | "right",
+        textPosition: form.getValues("textPosition") as "top" | "bottom",
+        background: form.getValues("background"),
+        lineColor: form.getValues("lineColor"),
+        margin: 0
+      })
+      
+      // Center the barcode within the column
+      const barcodeX = centerX - barcodeCanvas.width / 2
+      const barcodeY = y + 20
+      ctx.drawImage(barcodeCanvas, barcodeX, barcodeY)
+    }
+
+    const link = document.createElement("a")
+    link.download = `thermal-stickers-${form.getValues("text")}-${quantity}pcs-2col.png`
+    link.href = canvas.toDataURL("image/png")
+    link.click()
+  }
+
   const copyToClipboard = async () => {
     if (!generatedBarcode) return
 
@@ -579,10 +656,16 @@ export default function BarcodeGeneratePage() {
                           Copy to Clipboard
                         </Button>
                       </div>
-                      <Button onClick={downloadBulkStickers} className="w-full">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download {form.watch("quantity")} Stickers Sheet (A4 Ready)
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button onClick={downloadBulkStickers} variant="outline" className="flex-1">
+                          <Download className="h-4 w-4 mr-2" />
+                          A4 Sheet ({form.watch("quantity")} pcs)
+                        </Button>
+                        <Button onClick={downloadThermalStickers} className="flex-1">
+                          <Download className="h-4 w-4 mr-2" />
+                          TSC TE244 (2-Col)
+                        </Button>
+                      </div>
                     </div>
                   )}
 
@@ -595,10 +678,10 @@ export default function BarcodeGeneratePage() {
                         <p><strong>Format:</strong> {form.getValues("format")}</p>
                         <p><strong>Sticker Size:</strong> {form.getValues("stickerSize")} ({form.getValues("width")}x{form.getValues("height")})</p>
                         <p><strong>Quantity:</strong> {form.getValues("quantity")} stickers</p>
-                        <p><strong>Print Ready:</strong> A4 sheet layout optimized</p>
+                        <p><strong>Print Ready:</strong> A4 sheet & TSC TE244 thermal printer (2-column)</p>
                       </div>
                       <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                        <p><strong>💡 Tip:</strong> Standard size (31×20mm) is perfect for saree tags and meets retail scanning requirements.</p>
+                        <p><strong>💡 Tip:</strong> Use "TSC TE244 (2-Col)" button for thermal printer with 2-column layout. Standard size (31×20mm) is perfect for saree tags and meets retail scanning requirements.</p>
                       </div>
                     </div>
                   )}
