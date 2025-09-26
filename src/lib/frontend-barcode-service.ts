@@ -32,6 +32,15 @@ export interface PrintResult {
   success: boolean
   message: string
   details?: Record<string, unknown>
+  printers?: Array<{
+    vendorId: number;
+    productId: number;
+    name: string;
+    isTSCPrinter: boolean;
+    vendorIdHex: string;
+    productIdHex: string;
+    deviceInfo?: string;
+  }>
 }
 
 export class FrontendBarcodeService {
@@ -298,6 +307,47 @@ export class FrontendBarcodeService {
       return {
         success: false,
         message: `Failed to get available printers: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        details: {
+          error: error instanceof Error ? error.stack : String(error),
+          timestamp: new Date().toISOString()
+        }
+      }
+    }
+  }
+
+  /**
+   * Select a specific printer by vendor and product ID
+   */
+  async selectPrinter(vendorId: number, productId: number): Promise<PrintResult> {
+    try {
+      console.log('Frontend: Selecting printer:', { vendorId, productId })
+      
+      const response = await fetch(`${this.baseUrl}/tsc-print`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'select_printer',
+          vendorId,
+          productId
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log('Frontend: Printer selected successfully:', result.message)
+      } else {
+        console.error('Frontend: Printer selection failed:', result.message)
+      }
+      
+      return result
+    } catch (error) {
+      console.error('Frontend: Printer selection request failed:', error)
+      return {
+        success: false,
+        message: `Failed to select printer: ${error instanceof Error ? error.message : 'Unknown error'}`,
         details: {
           error: error instanceof Error ? error.stack : String(error),
           timestamp: new Date().toISOString()

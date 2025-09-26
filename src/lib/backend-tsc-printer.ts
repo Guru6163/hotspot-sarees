@@ -373,10 +373,32 @@ export class BackendTSCPrinterService {
   }
 
   /**
-   * Get available TSC printers
+   * Get available TSC printers and all USB devices
    */
-  getAvailablePrinters(): Array<{ vendorId: number; productId: number; name: string }> {
-    return this.availablePrinters
+  getAvailablePrinters(): Array<{ 
+    vendorId: number; 
+    productId: number; 
+    name: string; 
+    isTSCPrinter: boolean;
+    vendorIdHex: string;
+    productIdHex: string;
+    deviceInfo?: string;
+  }> {
+    return customTSCPrinter.getAvailablePrinters()
+  }
+
+  /**
+   * Select a specific printer by vendor and product ID
+   */
+  selectPrinter(vendorId: number, productId: number): { success: boolean; message: string } {
+    const result = customTSCPrinter.selectPrinter(vendorId, productId)
+    
+    if (result.success) {
+      // Update our available printers list
+      this.availablePrinters = customTSCPrinter.getAvailablePrinters()
+    }
+    
+    return result
   }
 
   /**

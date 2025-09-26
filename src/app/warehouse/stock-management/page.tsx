@@ -111,6 +111,24 @@ export default function StockManagementPage() {
   const [deleting, setDeleting] = React.useState(false)
   const [generatingBarcode, setGeneratingBarcode] = React.useState(false)
   const [barcodePreview, setBarcodePreview] = React.useState<string>("")
+  
+  // Printer selection states
+  const [availablePrinters, setAvailablePrinters] = React.useState<Array<{
+    vendorId: number;
+    productId: number;
+    name: string;
+    isTSCPrinter: boolean;
+    vendorIdHex: string;
+    productIdHex: string;
+    deviceInfo?: string;
+  }>>([])
+  const [selectedPrinter, setSelectedPrinter] = React.useState<{
+    vendorId: number;
+    productId: number;
+    name: string;
+  } | null>(null)
+  const [printerStatus, setPrinterStatus] = React.useState<string>("")
+  const [loadingPrinters, setLoadingPrinters] = React.useState(false)
 
   const barcodeForm = useForm<PrintBarcodeFormValues>({
     resolver: zodResolver(printBarcodeSchema),
@@ -151,10 +169,70 @@ export default function StockManagementPage() {
     }
   }, [currentPage, categoryFilter, searchTerm])
 
+  // Select a specific printer
+  const selectPrinter = React.useCallback(async (vendorId: number, productId: number, name: string) => {
+    try {
+      const result = await frontendBarcodeService.selectPrinter(vendorId, productId)
+      
+      if (result.success) {
+        setSelectedPrinter({ vendorId, productId, name })
+        setPrinterStatus(`Selected: ${name}`)
+        toast.success("Printer selected", {
+          description: `Successfully selected ${name}`
+        })
+      } else {
+        setPrinterStatus(`Failed to select: ${result.message}`)
+        toast.error("Failed to select printer", {
+          description: result.message || "Could not select the specified printer"
+        })
+      }
+    } catch (error) {
+      console.error('Error selecting printer:', error)
+      setPrinterStatus("Error selecting printer")
+      toast.error("Failed to select printer", {
+        description: "Could not select the specified printer"
+      })
+    }
+  }, [])
+
+  // Load available printers on component mount
+  const loadAvailablePrinters = React.useCallback(async () => {
+    setLoadingPrinters(true)
+    try {
+      const result = await frontendBarcodeService.getAvailablePrinters()
+      
+      if (result.success && result.printers) {
+        setAvailablePrinters(result.printers)
+        setPrinterStatus(result.message || "Printers loaded successfully")
+        
+        // Auto-select first TSC printer if available
+        const tscPrinters = result.printers.filter((p) => p.isTSCPrinter)
+        if (tscPrinters.length > 0 && !selectedPrinter) {
+          const firstTSCPrinter = tscPrinters[0]
+          await selectPrinter(firstTSCPrinter.vendorId, firstTSCPrinter.productId, firstTSCPrinter.name)
+        }
+      } else {
+        setPrinterStatus(result.message || "Failed to load printers")
+        toast.error("Failed to load printers", {
+          description: result.message || "Could not detect any USB devices"
+        })
+      }
+    } catch (error) {
+      console.error('Error loading printers:', error)
+      setPrinterStatus("Error loading printers")
+      toast.error("Failed to load printers", {
+        description: "Could not connect to printer service"
+      })
+    } finally {
+      setLoadingPrinters(false)
+    }
+  }, [selectedPrinter, selectPrinter])
+
   // Initial load and refetch when filters change
   React.useEffect(() => {
     fetchStocks()
-  }, [fetchStocks])
+    loadAvailablePrinters()
+  }, [fetchStocks, loadAvailablePrinters])
 
   // Handle search with debounce
   React.useEffect(() => {
@@ -259,6 +337,15 @@ export default function StockManagementPage() {
     
     setGeneratingBarcode(true)
     try {
+      // Check if printer is selected
+      if (!selectedPrinter) {
+        toast.error("No printer selected", {
+          description: "Please select a printer from the dropdown above before printing.",
+        })
+        setGeneratingBarcode(false)
+        return
+      }
+
       // Check if stock quantity is 0
       if (selectedStock.quantity === 0) {
         toast.error("Cannot generate barcodes", {
@@ -322,8 +409,8 @@ export default function StockManagementPage() {
         throw new Error(`${errorTitle}: ${errorDescription}`)
       }
 
-      toast.success("Barcode stickers sent to backend printer!", {
-        description: `Backend printing ${quantity} stickers for ${selectedStock.itemName} (TSC TE244 - 2-column layout)`,
+      toast.success("Barcode stickers sent to printer!", {
+        description: `Printing ${quantity} stickers for ${selectedStock.itemName} to ${selectedPrinter.name}`,
         duration: 4000,
       })
       
@@ -456,6 +543,52 @@ export default function StockManagementPage() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  {/* Printer Selection */}
+                  <div className="flex items-center gap-2">
+                    <Select 
+                      value={selectedPrinter ? `${selectedPrinter.vendorId}-${selectedPrinter.productId}` : ""} 
+                      onValueChange={(value) => {
+                        if (value) {
+                          const [vendorId, productId] = value.split('-').map(Number)
+                          const printer = availablePrinters.find(p => p.vendorId === vendorId && p.productId === productId)
+                          if (printer) {
+                            selectPrinter(vendorId, productId, printer.name)
+                          }
+                        }
+                      }}
+                      disabled={loadingPrinters}
+                    >
+                      <SelectTrigger className="w-[300px]">
+                        <SelectValue placeholder={loadingPrinters ? "Loading printers..." : "Select Printer"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availablePrinters.map((printer) => (
+                          <SelectItem 
+                            key={`${printer.vendorId}-${printer.productId}`} 
+                            value={`${printer.vendorId}-${printer.productId}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={printer.isTSCPrinter ? "text-green-600" : "text-gray-500"}>
+                                {printer.isTSCPrinter ? "🖨️" : "🔌"}
+                              </span>
+                              <span className={printer.isTSCPrinter ? "font-medium" : ""}>
+                                {printer.name}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      onClick={loadAvailablePrinters} 
+                      variant="outline" 
+                      size="sm" 
+                      disabled={loadingPrinters}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loadingPrinters ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+                  
                   <Button onClick={fetchStocks} variant="outline" size="sm" disabled={loading}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                     Refresh
@@ -505,6 +638,19 @@ export default function StockManagementPage() {
                     Clear Filters
                   </Button>
                 </div>
+
+                {/* Printer Status */}
+                {printerStatus && (
+                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                    <div className={`w-2 h-2 rounded-full ${selectedPrinter ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                    <span className="text-sm font-medium">
+                      {selectedPrinter ? `Printer: ${selectedPrinter.name}` : 'No printer selected'}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {printerStatus}
+                    </span>
+                  </div>
+                )}
 
                 {/* Results Count */}
                 <div className="text-sm text-muted-foreground">

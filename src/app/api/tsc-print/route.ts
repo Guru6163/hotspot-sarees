@@ -5,8 +5,23 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
+    // Handle printer selection
+    if (body.type === 'select_printer') {
+      const { vendorId, productId } = body
+      
+      if (!vendorId || !productId) {
+        return NextResponse.json(
+          { success: false, message: 'Invalid request: vendorId and productId are required' },
+          { status: 400 }
+        )
+      }
+
+      const result = backendTSCPrinter.selectPrinter(vendorId, productId)
+      return NextResponse.json(result, { status: result.success ? 200 : 400 })
+    }
+    
     // Handle different types of print requests
-    if (body.type === 'barcode') {
+    else if (body.type === 'barcode') {
       // Single barcode print request
       const barcodeRequest: BarcodePrintRequest = body
       
@@ -91,7 +106,7 @@ export async function GET() {
       success: true,
       printers,
       status,
-      message: `Found ${printers.length} TSC printer(s)`
+      message: `Found ${printers.length} USB device(s) - ${printers.filter(p => p.isTSCPrinter).length} TSC printer(s)`
     })
     
   } catch (error) {
