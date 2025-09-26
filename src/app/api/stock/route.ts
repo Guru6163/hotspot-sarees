@@ -32,7 +32,7 @@ const createStockSchema = z.object({
   itemCode: z.string().optional(),
   itemName: z.string().min(1, "Item name is required"),
   category: z.string().min(1, "Category is required"),
-  color: z.string().min(1, "Color is required"),
+  color: z.string().optional(),
   quantity: z.number().int().positive("Quantity must be a positive integer"),
   unitPrice: z.number().positive("Unit price must be positive"),
   sellingPrice: z.number().positive("Selling price must be positive"),

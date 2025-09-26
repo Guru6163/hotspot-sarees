@@ -44,7 +44,7 @@ const addStockFormSchema = z.object({
   itemCode: z.string().optional(),
   itemName: z.string().min(1, "Item name is required"),
   category: z.string().min(1, "Category is required"),
-  color: z.string().min(1, "Color is required"),
+  color: z.string().optional(),
   quantity: z.string().min(1, "Quantity is required"),
   unitPrice: z.string().min(1, "Unit price is required"),
   sellingPrice: z.string().min(1, "Selling price is required"),
@@ -80,7 +80,7 @@ export default function AddStockPage() {
         itemCode: data.itemCode || undefined, // Convert empty string to undefined
         itemName: data.itemName,
         category: data.category,
-        color: data.color,
+        color: data.color || undefined, // Convert empty string to undefined
         quantity: parseInt(data.quantity),
         unitPrice: parseFloat(data.unitPrice),
         sellingPrice: parseFloat(data.sellingPrice),
@@ -228,11 +228,11 @@ export default function AddStockPage() {
                 name="color"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Color</FormLabel>
+                    <FormLabel>Color (Optional)</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select color" />
+                          <SelectValue placeholder="Select color (optional)" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

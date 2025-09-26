@@ -12,7 +12,7 @@ model Stock {
   itemCode         String?
   itemName         String
   category         String
-  color            String         @default("Not Specified")
+  color            String?
   quantity         Int
   unitPrice        Float
   supplier         String

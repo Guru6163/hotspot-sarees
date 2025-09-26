@@ -7,7 +7,7 @@ const updateStockSchema = z.object({
   itemCode: z.string().optional(),
   itemName: z.string().min(1, "Item name is required").optional(),
   category: z.string().min(1, "Category is required").optional(),
-  color: z.string().min(1, "Color is required").optional(),
+  color: z.string().optional(),
   quantity: z.number().int().positive("Quantity must be a positive integer").optional(),
   unitPrice: z.number().positive("Unit price must be positive").optional(),
   supplier: z.string().min(1, "Supplier is required").optional(),
