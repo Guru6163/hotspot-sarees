@@ -13,7 +13,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   RefreshCw,
-  Receipt
+  Receipt,
+  Printer
 } from "lucide-react"
 import { format } from "date-fns"
 
@@ -33,6 +34,8 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 
 import { getPurchases, type Purchase } from "@/lib/api/billing"
+import { billPrinter, BillData } from "@/lib/bill-printer"
+import { toast } from "sonner"
 
 interface FilterState {
   customerName: string
@@ -178,6 +181,71 @@ export default function TransactionHistoryPage() {
   // Format date
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'dd MMM yyyy, hh:mm a')
+  }
+
+  // Handle bill printing
+  const handlePrintBill = async (purchase: Purchase) => {
+    try {
+      // Prepare bill data for printing
+      const billData: BillData = {
+        // Store Information
+        storeName: "HOTSPOT DSK TRADERS",
+        storeAddress: "NO:1161Z/3, VELLORE ROAD, SEVOOR, CHEVUR, VELLORE- 632316",
+        storePhone: "8111079499",
+        storeGST: "33AASFD1146J1ZE",
+        
+        // Invoice Details
+        invoiceNumber: purchase.invoiceNumber,
+        customerName: purchase.customerName,
+        customerPhone: purchase.customerPhone,
+        date: new Date(purchase.createdAt).toLocaleDateString('en-IN'),
+        time: new Date(purchase.createdAt).toLocaleTimeString('en-IN', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        }),
+        
+        // Items
+        items: purchase.items.map((item) => ({
+          product: item.stock.itemName,
+          productCode: item.stock.stockID,
+          qty: item.quantity,
+          rate: item.unitPrice,
+          amount: item.totalPrice,
+          hsn: "620342" // Default HSN for clothing items
+        })),
+        
+        // Totals
+        totalItems: purchase.items.length,
+        subtotal: purchase.subtotal,
+        discountAmount: purchase.discountAmount,
+        taxAmount: purchase.taxAmount,
+        totalAmount: purchase.totalAmount,
+        
+        // Payment
+        paymentMethod: purchase.isSplitPayment ? "Split Payment" : purchase.paymentMethod,
+        paymentAmount: purchase.totalAmount,
+        
+        // Terms
+        terms: [
+          "STRICTLY NO CASH REFUND",
+          "EXCHANGE WITHIN 3 DAYS (BILL AND PRICE TAG MUST)",
+          "NO EXCHANGE ON ACCESSORIES, BLAZER, SHOE AND DAMAGE MADE BY CUSTOMER",
+          "THANK YOU VISIT AGAIN!!!"
+        ]
+      };
+
+      const result = await billPrinter.printBill(billData);
+      
+      if (result.success) {
+        toast.success("Bill sent to printer!");
+      } else {
+        toast.error(`Print failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Error printing bill:", error);
+      toast.error("Failed to print bill. Please try again.");
+    }
   }
 
   return (
@@ -440,16 +508,26 @@ export default function TransactionHistoryPage() {
                           {formatCurrency(purchase.totalAmount)}
                         </TableCell>
                         <TableCell className="text-center">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelectedPurchase(purchase)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
+                          <div className="flex items-center gap-2 justify-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePrintBill(purchase)}
+                              title="Print Bill"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedPurchase(purchase)}
+                                  title="View Details"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </DialogTrigger>
                             <DialogContent className="max-w-2xl">
                               <DialogHeader>
                                 <DialogTitle>Transaction Details</DialogTitle>
@@ -565,6 +643,7 @@ export default function TransactionHistoryPage() {
                               )}
                             </DialogContent>
                           </Dialog>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

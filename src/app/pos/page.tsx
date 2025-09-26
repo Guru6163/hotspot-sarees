@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { getStockByBarcode, searchStocks, Stock } from "@/lib/api/stock";
 import { createPurchase, CreatePurchaseData } from "@/lib/api/billing";
+import { billPrinter, BillData } from "@/lib/bill-printer";
 import { toast } from "sonner";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -361,6 +362,9 @@ export default function POSPage() {
       if (response.success) {
         toast.success(`Purchase completed! Invoice: ${response.data.invoiceNumber} - Total: ₹${finalTotal.toFixed(2)}${discountAmount > 0 ? ` (Discount: ₹${discountAmount.toFixed(2)})` : ""}`);
         
+        // Print bill after successful purchase
+        await handlePrintBill(response.data);
+        
         // Clear form
         clearCart();
         setCustomerName("");
@@ -382,10 +386,73 @@ export default function POSPage() {
     }
   };
 
-  const handlePrintBill = () => {
-    // Here you would implement actual printing functionality
-    window.print();
-    toast.success("Bill sent to printer!");
+  const handlePrintBill = async (purchaseData?: any) => {
+    try {
+      if (!purchaseData) {
+        toast.error("No purchase data available for printing");
+        return;
+      }
+
+      // Prepare bill data for printing
+      const billData: BillData = {
+        // Store Information
+        storeName: "HOTSPOT DSK TRADERS",
+        storeAddress: "NO:1161Z/3, VELLORE ROAD, SEVOOR, CHEVUR, VELLORE- 632316",
+        storePhone: "8111079499",
+        storeGST: "33AASFD1146J1ZE",
+        
+        // Invoice Details
+        invoiceNumber: purchaseData.invoiceNumber,
+        customerName: purchaseData.customerName,
+        customerPhone: purchaseData.customerPhone,
+        date: new Date(purchaseData.createdAt).toLocaleDateString('en-IN'),
+        time: new Date(purchaseData.createdAt).toLocaleTimeString('en-IN', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        }),
+        
+        // Items
+        items: purchaseData.items.map((item: any) => ({
+          product: item.stock.itemName,
+          productCode: item.stock.stockID,
+          qty: item.quantity,
+          rate: item.unitPrice,
+          amount: item.totalPrice,
+          hsn: "620342" // Default HSN for clothing items
+        })),
+        
+        // Totals
+        totalItems: purchaseData.items.length,
+        subtotal: purchaseData.subtotal,
+        discountAmount: purchaseData.discountAmount,
+        taxAmount: purchaseData.taxAmount,
+        totalAmount: purchaseData.totalAmount,
+        
+        // Payment
+        paymentMethod: purchaseData.isSplitPayment ? "Split Payment" : purchaseData.paymentMethod,
+        paymentAmount: purchaseData.totalAmount,
+        
+        // Terms
+        terms: [
+          "STRICTLY NO CASH REFUND",
+          "EXCHANGE WITHIN 3 DAYS (BILL AND PRICE TAG MUST)",
+          "NO EXCHANGE ON ACCESSORIES, BLAZER, SHOE AND DAMAGE MADE BY CUSTOMER",
+          "THANK YOU VISIT AGAIN!!!"
+        ]
+      };
+
+      const result = await billPrinter.printBill(billData);
+      
+      if (result.success) {
+        toast.success("Bill sent to printer!");
+      } else {
+        toast.error(`Print failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Error printing bill:", error);
+      toast.error("Failed to print bill. Please try again.");
+    }
   };
 
   return (
