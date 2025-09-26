@@ -5,23 +5,24 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let usb: any = null
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let usbDetection: any = null
+let nodeHid: any = null
 
+// Try node-hid first (better for Windows)
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  usb = require('usb')
-  console.log('USB module loaded successfully')
+  nodeHid = require('node-hid')
+  console.log('node-hid module loaded successfully (primary)')
 } catch (error) {
-  console.warn('USB module not available:', error)
-  console.log('Trying alternative USB detection methods...')
+  console.warn('node-hid module not available:', error)
+  console.log('Trying USB module as fallback...')
   
-  // Try alternative USB detection for Windows
+  // Try USB module as fallback
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    usbDetection = require('node-hid')
-    console.log('node-hid module loaded as fallback')
-  } catch (hidError) {
-    console.warn('node-hid also not available:', hidError)
+    usb = require('usb')
+    console.log('USB module loaded as fallback')
+  } catch (usbError) {
+    console.warn('USB module also not available:', usbError)
   }
 }
 
@@ -63,15 +64,17 @@ export class CustomTSCPrinter {
   private initializeUSB(): void {
     try {
       console.log('Initializing USB detection...')
+      console.log('node-hid module available:', !!nodeHid)
       console.log('USB module available:', !!usb)
       console.log('Platform:', process.platform)
       
-      if (!usb) {
-        console.warn('USB module not available - TSC printer functionality disabled')
-        console.log('This usually means the USB module failed to load. Common causes:')
+      if (!nodeHid && !usb) {
+        console.warn('No USB detection modules available - TSC printer functionality disabled')
+        console.log('This usually means the USB modules failed to load. Common causes:')
         console.log('1. Missing native dependencies (node-gyp, python, build tools)')
         console.log('2. Windows: Missing Visual Studio Build Tools')
         console.log('3. Permission issues on Windows')
+        console.log('4. Missing node-hid or usb packages')
         return
       }
 
@@ -404,14 +407,16 @@ export class CustomTSCPrinter {
     deviceInfo?: string;
   }> {
     try {
-      // Try primary USB detection first
-      if (usb) {
-        return this.getUSBDevices()
+      // Try node-hid first (better for Windows)
+      if (nodeHid) {
+        console.log('Using node-hid for device detection...')
+        return this.getHIDDevices()
       }
       
-      // Try fallback detection methods
-      if (usbDetection) {
-        return this.getHIDDevices()
+      // Try USB module as fallback
+      if (usb) {
+        console.log('Using USB module as fallback...')
+        return this.getUSBDevices()
       }
       
       // If no USB detection available, return empty array
@@ -613,7 +618,7 @@ export class CustomTSCPrinter {
   }
 
   /**
-   * Get devices using HID fallback (better for Windows)
+   * Get devices using node-hid (primary method, better for Windows)
    */
   private getHIDDevices(): Array<{ 
     vendorId: number; 
@@ -625,13 +630,26 @@ export class CustomTSCPrinter {
     deviceInfo?: string;
   }> {
     try {
-      if (!usbDetection) {
+      if (!nodeHid) {
         return []
       }
 
-      console.log('Using HID fallback detection...')
-      const devices = usbDetection.devices()
-      console.log(`HID: Found ${devices.length} devices`)
+      console.log('Using node-hid for device detection...')
+      const devices = nodeHid.devices()
+      console.log(`node-hid: Found ${devices.length} devices`)
+      
+      // Log all devices for debugging
+      console.log('All HID devices:')
+      devices.forEach((device: { vendorId: number; productId: number; manufacturer?: string; product?: string }, index: number) => {
+        console.log(`Device ${index}:`, {
+          vendorId: device.vendorId,
+          productId: device.productId,
+          vendorIdHex: '0x' + device.vendorId.toString(16).padStart(4, '0'),
+          productIdHex: '0x' + device.productId.toString(16).padStart(4, '0'),
+          manufacturer: device.manufacturer,
+          product: device.product
+        })
+      })
       
       // TSC printer vendor IDs
       const tscVendorIds = [
@@ -648,14 +666,18 @@ export class CustomTSCPrinter {
         0x04ca, // Lite-On Technology
       ]
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const allDevices = devices.map((device: any) => {
+      const allDevices = devices.map((device: { vendorId: number; productId: number; manufacturer?: string; product?: string; path?: string }) => {
         const vendorId = device.vendorId
         const productId = device.productId
         const isTSCPrinter = tscVendorIds.includes(vendorId)
         
         const vendorIdHex = '0x' + vendorId.toString(16).padStart(4, '0')
         const productIdHex = '0x' + productId.toString(16).padStart(4, '0')
+        
+        // Create a more descriptive name
+        const manufacturer = device.manufacturer || 'Unknown'
+        const product = device.product || 'Unknown Device'
+        const deviceName = `${manufacturer} ${product}`.trim()
         
         return {
           vendorId,
@@ -664,9 +686,9 @@ export class CustomTSCPrinter {
           productIdHex,
           isTSCPrinter,
           name: isTSCPrinter 
-            ? `TSC Printer (HID) - VID:${vendorIdHex} PID:${productIdHex}`
-            : `USB Device (HID) - VID:${vendorIdHex} PID:${productIdHex}`,
-          deviceInfo: device.product || 'Unknown Device'
+            ? `🖨️ TSC Printer: ${deviceName} (VID:${vendorIdHex} PID:${productIdHex})`
+            : `🔌 USB Device: ${deviceName} (VID:${vendorIdHex} PID:${productIdHex})`,
+          deviceInfo: deviceName
         }
       })
 
