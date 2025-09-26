@@ -4,11 +4,25 @@
 // Dynamic import for USB to handle platform-specific builds
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let usb: any = null
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let usbDetection: any = null
+
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   usb = require('usb')
+  console.log('USB module loaded successfully')
 } catch (error) {
   console.warn('USB module not available:', error)
+  console.log('Trying alternative USB detection methods...')
+  
+  // Try alternative USB detection for Windows
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    usbDetection = require('node-hid')
+    console.log('node-hid module loaded as fallback')
+  } catch (hidError) {
+    console.warn('node-hid also not available:', hidError)
+  }
 }
 
 export interface TSCPrinterConfig {
@@ -48,8 +62,16 @@ export class CustomTSCPrinter {
    */
   private initializeUSB(): void {
     try {
+      console.log('Initializing USB detection...')
+      console.log('USB module available:', !!usb)
+      console.log('Platform:', process.platform)
+      
       if (!usb) {
         console.warn('USB module not available - TSC printer functionality disabled')
+        console.log('This usually means the USB module failed to load. Common causes:')
+        console.log('1. Missing native dependencies (node-gyp, python, build tools)')
+        console.log('2. Windows: Missing Visual Studio Build Tools')
+        console.log('3. Permission issues on Windows')
         return
       }
 
@@ -93,7 +115,23 @@ export class CustomTSCPrinter {
       ]
       
       // Find TSC printer device
+      console.log('Getting USB device list...')
       const devices = usb.getDeviceList()
+      console.log(`Found ${devices.length} USB devices`)
+      
+      // Log all devices for debugging
+      console.log('All USB devices:')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      devices.forEach((d: any, index: number) => {
+        console.log(`Device ${index}:`, {
+          vendorId: d.deviceDescriptor.idVendor,
+          productId: d.deviceDescriptor.idProduct,
+          vendorIdHex: '0x' + d.deviceDescriptor.idVendor.toString(16).padStart(4, '0'),
+          productIdHex: '0x' + d.deviceDescriptor.idProduct.toString(16).padStart(4, '0'),
+          isTSCPrinter: tscVendorIds.includes(d.deviceDescriptor.idVendor)
+        })
+      })
+      
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.device = devices.find((device: any) => 
         tscVendorIds.includes(device.deviceDescriptor.idVendor)
@@ -102,18 +140,32 @@ export class CustomTSCPrinter {
       if (this.device) {
         console.log('TSC Printer detected:', {
           vendorId: this.device.deviceDescriptor.idVendor,
-          productId: this.device.deviceDescriptor.idProduct
+          productId: this.device.deviceDescriptor.idProduct,
+          vendorIdHex: '0x' + this.device.deviceDescriptor.idVendor.toString(16).padStart(4, '0'),
+          productIdHex: '0x' + this.device.deviceDescriptor.idProduct.toString(16).padStart(4, '0')
         })
       } else {
-        console.log('No TSC printer detected. Available devices:', 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          devices.map((d: any) => ({ 
-            vendorId: d.deviceDescriptor.idVendor, 
+        console.log('No TSC printer detected in the filtered list')
+        console.log('Looking for any thermal printer devices...')
+        
+        // Check for any devices that might be thermal printers
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const potentialPrinters = devices.filter((d: any) => {
+          const vendorId = d.deviceDescriptor.idVendor
+          return vendorId === 0x04b8 || vendorId === 0x04e8 || vendorId === 0x0fe6 || 
+                 vendorId === 0x04f9 || vendorId === 0x03f0 || vendorId === 0x04b3
+        })
+        
+        if (potentialPrinters.length > 0) {
+          console.log('Found potential thermal printer devices:', potentialPrinters.map((d: { deviceDescriptor: { idVendor: number; idProduct: number } }) => ({
+            vendorId: d.deviceDescriptor.idVendor,
             productId: d.deviceDescriptor.idProduct,
             vendorIdHex: '0x' + d.deviceDescriptor.idVendor.toString(16).padStart(4, '0'),
             productIdHex: '0x' + d.deviceDescriptor.idProduct.toString(16).padStart(4, '0')
-          }))
-        )
+          })))
+        } else {
+          console.log('No thermal printer devices found')
+        }
       }
     } catch (error) {
       console.error('USB initialization error:', error)
@@ -352,12 +404,44 @@ export class CustomTSCPrinter {
     deviceInfo?: string;
   }> {
     try {
+      // Try primary USB detection first
+      if (usb) {
+        return this.getUSBDevices()
+      }
+      
+      // Try fallback detection methods
+      if (usbDetection) {
+        return this.getHIDDevices()
+      }
+      
+      // If no USB detection available, return empty array
+      console.warn('No USB detection methods available')
+      return []
+    } catch (error) {
+      console.error('Error getting available printers:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get devices using primary USB module
+   */
+  private getUSBDevices(): Array<{ 
+    vendorId: number; 
+    productId: number; 
+    name: string; 
+    isTSCPrinter: boolean;
+    vendorIdHex: string;
+    productIdHex: string;
+    deviceInfo?: string;
+  }> {
+    try {
       if (!usb) {
-        console.warn('USB module not available')
         return []
       }
 
       const devices = usb.getDeviceList()
+      console.log(`USB: Found ${devices.length} devices`)
       
       // Expanded TSC printer vendor IDs for better Windows 10 compatibility
       const tscVendorIds = [
@@ -398,8 +482,7 @@ export class CustomTSCPrinter {
         0x04ff, // Samsung
       ]
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const allDevices = devices.map((device: any) => {
+      const allDevices = devices.map((device: { deviceDescriptor: { idVendor: number; idProduct: number; iProduct?: number; iManufacturer?: number } }) => {
         const vendorId = device.deviceDescriptor.idVendor
         const productId = device.deviceDescriptor.idProduct
         const isTSCPrinter = tscVendorIds.includes(vendorId)
@@ -408,9 +491,9 @@ export class CustomTSCPrinter {
         let deviceInfo = 'Unknown Device'
         try {
           if (device.deviceDescriptor.iProduct) {
-            deviceInfo = device.deviceDescriptor.iProduct
+            deviceInfo = String(device.deviceDescriptor.iProduct)
           } else if (device.deviceDescriptor.iManufacturer) {
-            deviceInfo = device.deviceDescriptor.iManufacturer
+            deviceInfo = String(device.deviceDescriptor.iManufacturer)
           }
         } catch {
           // Ignore errors when accessing device strings
@@ -526,6 +609,77 @@ export class CustomTSCPrinter {
         success: false,
         message: `Connection test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       }
+    }
+  }
+
+  /**
+   * Get devices using HID fallback (better for Windows)
+   */
+  private getHIDDevices(): Array<{ 
+    vendorId: number; 
+    productId: number; 
+    name: string; 
+    isTSCPrinter: boolean;
+    vendorIdHex: string;
+    productIdHex: string;
+    deviceInfo?: string;
+  }> {
+    try {
+      if (!usbDetection) {
+        return []
+      }
+
+      console.log('Using HID fallback detection...')
+      const devices = usbDetection.devices()
+      console.log(`HID: Found ${devices.length} devices`)
+      
+      // TSC printer vendor IDs
+      const tscVendorIds = [
+        0x04b8, // TSC
+        0x04e8, // Samsung
+        0x0fe6, // Other thermal printer vendors
+        0x04f9, // Brother
+        0x03f0, // HP
+        0x04b3, // Zebra
+        0x0bda, // Realtek
+        0x1a86, // QinHeng Electronics
+        0x0483, // STMicroelectronics
+        0x04d8, // Microchip Technology
+        0x04ca, // Lite-On Technology
+      ]
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allDevices = devices.map((device: any) => {
+        const vendorId = device.vendorId
+        const productId = device.productId
+        const isTSCPrinter = tscVendorIds.includes(vendorId)
+        
+        const vendorIdHex = '0x' + vendorId.toString(16).padStart(4, '0')
+        const productIdHex = '0x' + productId.toString(16).padStart(4, '0')
+        
+        return {
+          vendorId,
+          productId,
+          vendorIdHex,
+          productIdHex,
+          isTSCPrinter,
+          name: isTSCPrinter 
+            ? `TSC Printer (HID) - VID:${vendorIdHex} PID:${productIdHex}`
+            : `USB Device (HID) - VID:${vendorIdHex} PID:${productIdHex}`,
+          deviceInfo: device.product || 'Unknown Device'
+        }
+      })
+
+      // Sort with TSC printers first, then others
+      return allDevices.sort((a: { isTSCPrinter: boolean; name: string }, b: { isTSCPrinter: boolean; name: string }) => {
+        if (a.isTSCPrinter && !b.isTSCPrinter) return -1
+        if (!a.isTSCPrinter && b.isTSCPrinter) return 1
+        return a.name.localeCompare(b.name)
+      })
+      
+    } catch (error) {
+      console.error('Error getting HID devices:', error)
+      return []
     }
   }
 
