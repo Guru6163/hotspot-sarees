@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { toast } from "sonner"
-import { tscPrinter, StickerData } from "@/lib/tsc-printer"
+import { frontendBarcodeService, FrontendStickerData } from "@/lib/frontend-barcode-service"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -280,7 +280,7 @@ export default function StockManagementPage() {
       }
       
       // Prepare sticker data for TSC printer
-      const stickerData: StickerData = {
+      const stickerData: FrontendStickerData = {
         stockID: selectedStock.stockID,
         itemName: selectedStock.itemName,
         category: selectedStock.category,
@@ -288,19 +288,23 @@ export default function StockManagementPage() {
         barcodeText: selectedStock.stockID // Use StockID for barcode
       }
 
-      // Print directly using TSC printer service
-      await tscPrinter.printStickers([stickerData], quantity)
+      // Print using backend-only service
+      const result = await frontendBarcodeService.printStockStickers([stickerData], quantity)
+      
+      if (!result.success) {
+        throw new Error(result.message)
+      }
 
-      toast.success("Thermal printer stickers sent to printer!", {
-        description: `Printing ${quantity} stickers for ${selectedStock.itemName} (TSC TE244 - 2-column layout)`,
+      toast.success("Barcode stickers sent to backend printer!", {
+        description: `Backend printing ${quantity} stickers for ${selectedStock.itemName} (TSC TE244 - 2-column layout)`,
         duration: 4000,
       })
       
       setBarcodeModalOpen(false)
     } catch (error) {
       console.error('Error generating thermal stickers:', error)
-      toast.error("Failed to generate stickers", {
-        description: "Please try again",
+      toast.error("Failed to print barcode stickers", {
+        description: "Backend printing failed. Please try again.",
       })
     } finally {
       setGeneratingBarcode(false)
