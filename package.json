@@ -14,6 +14,7 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@dlwlrma00/tsc-printer-js": "^1.0.4",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.16.2",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -62,6 +63,7 @@
     "recharts": "^2.15.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
+    "usb": "^2.16.0",
     "vaul": "^1.1.2",
     "zod": "^4.1.9"
   },

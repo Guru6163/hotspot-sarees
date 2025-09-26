@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/library";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Camera, X, Loader2 } from "lucide-react";
+import { Camera, X } from "lucide-react";
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;

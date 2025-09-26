@@ -47,6 +47,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { toast } from "sonner"
+import { tscPrinter } from "@/lib/tsc-printer"
 
 const barcodeFormSchema = z.object({
   text: z.string().min(1, "Text/Code is required"),
@@ -187,167 +188,26 @@ export default function BarcodeGeneratePage() {
     link.click()
   }
 
-  const downloadThermalStickers = () => {
+  const downloadThermalStickers = async () => {
     if (!generatedBarcode) return
 
-    const quantity = parseInt(form.getValues("quantity"))
-    const canvas = document.createElement("canvas")
-    const ctx = canvas.getContext("2d")
-    if (!ctx || !canvasRef.current) return
-
-    // TSC TE244 thermal printer specifications for 2-column printing
-    // 3 inches = 76.2mm, at 203 DPI (typical thermal printer)
-    const thermalWidth = 576 // 3 inches at 203 DPI
-    const columnWidth = thermalWidth / 2 // 288 pixels per column (36mm each)
-    const columnSpacing = 4 // 4 pixels spacing between columns
-    
-    // 25x50mm sticker size at 203 DPI
-    const stickerHeight = 406 // 50mm at 203 DPI
-    const rowSpacing = 4 // 4 pixels spacing between rows
-    
-    // Calculate layout for 2-column printing
-    const stickersPerRow = 2
-    const totalRows = Math.ceil(quantity / stickersPerRow)
-    
-    // Set canvas size for thermal printer - 2-column layout
-    // Use higher resolution for better quality
-    canvas.width = thermalWidth * 2 // Double resolution
-    canvas.height = totalRows * (stickerHeight + rowSpacing) * 2 // Double resolution
-    
-    // Scale the context for higher resolution
-    ctx.scale(2, 2)
-    
-    // White background (scaled coordinates)
-    ctx.fillStyle = "#ffffff"
-    ctx.fillRect(0, 0, thermalWidth, totalRows * (stickerHeight + rowSpacing))
-    
-    // Generate stickers in 2-column layout
-    for (let i = 0; i < quantity; i++) {
-      const row = Math.floor(i / stickersPerRow)
-      const col = i % stickersPerRow
+    try {
+      const quantity = parseInt(form.getValues("quantity"))
+      const barcodeText = form.getValues("text")
       
-      // Calculate position for this sticker
-      const x = col * (columnWidth + columnSpacing)
-      const y = row * (stickerHeight + rowSpacing)
+      // Print directly using TSC printer service
+      await tscPrinter.printBarcodeSticker(barcodeText, "Barcode Label")
       
-      // Calculate center position for content within this column
-      const centerX = x + columnWidth / 2
-      
-      // Set text properties for proper centering
-      ctx.fillStyle = "#000000"
-      ctx.textAlign = "center"
-      
-      // 1. Barcode text at the top
-      ctx.font = "bold 10px Arial"
-      ctx.fillText(form.getValues("text"), centerX, y + 12)
-      
-      // 2. Create barcode for this sticker
-      const barcodeCanvas = document.createElement("canvas")
-      barcodeCanvas.width = 280 // Width for 2-column layout
-      barcodeCanvas.height = 60
-      
-      JsBarcode(barcodeCanvas, form.getValues("text"), {
-        format: form.getValues("format"),
-        width: 1.5, // Bar width for 2-column layout
-        height: 35, // Barcode height
-        displayValue: false, // Don't show text below barcode for cleaner look
-        margin: 0,
-        background: form.getValues("background"),
-        lineColor: form.getValues("lineColor")
+      toast.success("Thermal printer stickers sent to printer!", {
+        description: `Printing ${quantity} stickers for ${barcodeText} (TSC TE244 - 2-column layout)`,
+        duration: 4000,
       })
-      
-      // Center the barcode within the column
-      const barcodeX = centerX - barcodeCanvas.width / 2
-      const barcodeY = y + 18
-      ctx.drawImage(barcodeCanvas, barcodeX, barcodeY)
-      
-      // 3. Additional info at the bottom
-      ctx.font = "bold 8px Arial"
-      ctx.fillText("Barcode Label", centerX, y + 58)
+    } catch (error) {
+      console.error('Error printing thermal stickers:', error)
+      toast.error("Failed to print stickers", {
+        description: "Please check your TSC printer connection and try again",
+      })
     }
-
-    // Print directly to TSC TE244 thermal printer
-    const imageData = canvas.toDataURL("image/png")
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Thermal Stickers - ${form.getValues("text")}</title>
-        <style>
-          @page {
-            size: 76.2mm auto; /* TSC TE244: 3 inches (76.2mm) width */
-            margin: 0;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            width: 76.2mm; /* TSC TE244: 3 inches width */
-            background: white;
-          }
-          .sticker-container {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-          }
-          .sticker-image {
-            width: 100%;
-            height: auto;
-            max-width: 76.2mm; /* TSC TE244: 3 inches width */
-            image-rendering: pixelated; /* Better for thermal printers */
-          }
-          @media print {
-            body { 
-              margin: 0; 
-              padding: 0; 
-              width: 76.2mm;
-            }
-            .sticker-container { 
-              page-break-inside: avoid; 
-              width: 76.2mm;
-            }
-            .sticker-image {
-              width: 76.2mm;
-              height: auto;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="sticker-container">
-          <img src="${imageData}" alt="Thermal Stickers" class="sticker-image" />
-        </div>
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-              setTimeout(function() {
-                window.close();
-              }, 1000);
-            }, 500);
-          };
-        </script>
-      </body>
-      </html>
-    `
-    
-    const printWindow = window.open('', '_blank', 'width=400,height=600')
-    if (printWindow) {
-      printWindow.document.write(printContent)
-      printWindow.document.close()
-      printWindow.focus()
-      setTimeout(() => {
-        printWindow.print()
-      }, 1000)
-    } else {
-      throw new Error("Could not open print window. Please check popup blockers.")
-    }
-    
-    toast.success("Thermal printer stickers sent to printer!", {
-      description: `Printing ${quantity} stickers for ${form.getValues("text")} (TSC TE244 - 2-column layout)`,
-      duration: 4000,
-    })
   }
 
   const copyToClipboard = async () => {
