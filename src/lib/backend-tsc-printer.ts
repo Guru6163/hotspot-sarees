@@ -90,6 +90,29 @@ export class BackendTSCPrinterService {
         await this.initialize()
       }
 
+      // Check if printer is available
+      const availablePrinters = this.getAvailablePrinters()
+      if (availablePrinters.length === 0) {
+        const errorMessage = "No TSC printer detected. Please connect a TSC thermal printer via USB."
+        backendPrintLogger.logPrintError(logId, new Error(errorMessage), {
+          printedQuantity: request.quantity,
+          itemsCount: request.stickers.length,
+          responseTime: Date.now() - startTime,
+          errorType: 'NO_PRINTER'
+        })
+        
+        return {
+          success: false,
+          message: errorMessage,
+          details: {
+            errorType: 'NO_PRINTER',
+            availablePrinters: 0,
+            responseTime: Date.now() - startTime,
+            timestamp: new Date().toISOString()
+          }
+        }
+      }
+
       const { stickers, quantity } = request
       
       // Convert backend sticker data to custom sticker data
@@ -128,28 +151,77 @@ export class BackendTSCPrinterService {
         }
       } else {
         console.error('Backend print failed:', result.message)
+        
+        // Determine specific error type
+        let errorType = 'PRINT_ERROR'
+        let userMessage = result.message
+        
+        if (result.message.includes('not detected') || result.message.includes('not found')) {
+          errorType = 'NO_PRINTER'
+          userMessage = "No TSC printer detected. Please connect a TSC thermal printer via USB."
+        } else if (result.message.includes('USB') || result.message.includes('connection')) {
+          errorType = 'CONNECTION_ERROR'
+          userMessage = "Printer connection failed. Please check USB connection and try again."
+        } else if (result.message.includes('permission') || result.message.includes('access')) {
+          errorType = 'PERMISSION_ERROR'
+          userMessage = "Printer access denied. Please check USB permissions and try again."
+        }
+        
         backendPrintLogger.logPrintError(logId, new Error(result.message), {
           printedQuantity: quantity,
           itemsCount: stickers.length,
-          responseTime
+          responseTime,
+          errorType
         })
-        return result
+        
+        return {
+          success: false,
+          message: userMessage,
+          details: {
+            errorType,
+            originalError: result.message,
+            responseTime,
+            timestamp: new Date().toISOString()
+          }
+        }
       }
       
     } catch (error) {
       const responseTime = Date.now() - startTime
       console.error('Backend TSC Printer Error:', error)
       
+      // Determine specific error type from caught error
+      let errorType = 'UNKNOWN_ERROR'
+      let userMessage = 'Backend printing failed'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('USB') || error.message.includes('device')) {
+          errorType = 'NO_PRINTER'
+          userMessage = "No TSC printer detected. Please connect a TSC thermal printer via USB."
+        } else if (error.message.includes('permission') || error.message.includes('access')) {
+          errorType = 'PERMISSION_ERROR'
+          userMessage = "Printer access denied. Please check USB permissions and try again."
+        } else if (error.message.includes('timeout') || error.message.includes('connection')) {
+          errorType = 'CONNECTION_ERROR'
+          userMessage = "Printer connection timeout. Please check USB connection and try again."
+        } else {
+          errorType = 'PRINT_ERROR'
+          userMessage = `Printing failed: ${error.message}`
+        }
+      }
+      
       backendPrintLogger.logPrintError(logId, error instanceof Error ? error : new Error(String(error)), {
         printedQuantity: request.quantity,
         itemsCount: request.stickers.length,
-        responseTime
+        responseTime,
+        errorType
       })
       
       return {
         success: false,
-        message: `Backend print failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: userMessage,
         details: {
+          errorType,
           error: error instanceof Error ? error.stack : String(error),
           responseTime,
           timestamp: new Date().toISOString()
@@ -194,14 +266,37 @@ export class BackendTSCPrinterService {
         }
       }
 
+      // Return the specific error from printStickers
       return result
       
     } catch (error) {
       console.error('Backend barcode print error:', error)
+      
+      // Determine specific error type
+      let errorType = 'UNKNOWN_ERROR'
+      let userMessage = 'Barcode printing failed'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('USB') || error.message.includes('device') || error.message.includes('not detected')) {
+          errorType = 'NO_PRINTER'
+          userMessage = "No TSC printer detected. Please connect a TSC thermal printer via USB."
+        } else if (error.message.includes('permission') || error.message.includes('access')) {
+          errorType = 'PERMISSION_ERROR'
+          userMessage = "Printer access denied. Please check USB permissions and try again."
+        } else if (error.message.includes('timeout') || error.message.includes('connection')) {
+          errorType = 'CONNECTION_ERROR'
+          userMessage = "Printer connection timeout. Please check USB connection and try again."
+        } else {
+          errorType = 'PRINT_ERROR'
+          userMessage = `Barcode printing failed: ${error.message}`
+        }
+      }
+      
       return {
         success: false,
-        message: `Barcode print failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: userMessage,
         details: {
+          errorType,
           barcodeText: request.barcodeText,
           error: error instanceof Error ? error.stack : String(error),
           timestamp: new Date().toISOString()

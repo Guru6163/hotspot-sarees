@@ -292,7 +292,34 @@ export default function StockManagementPage() {
       const result = await frontendBarcodeService.printStockStickers([stickerData], quantity)
       
       if (!result.success) {
-        throw new Error(result.message)
+        // Show specific error message based on error type
+        const errorType = result.details?.errorType as string
+        let errorTitle = "Failed to print barcode stickers"
+        let errorDescription = result.message
+        
+        switch (errorType) {
+          case 'NO_PRINTER':
+            errorTitle = "No Printer Detected"
+            errorDescription = "No TSC printer detected. Please connect a TSC thermal printer via USB."
+            break
+          case 'CONNECTION_ERROR':
+            errorTitle = "Printer Connection Failed"
+            errorDescription = "Printer connection failed. Please check USB connection and try again."
+            break
+          case 'PERMISSION_ERROR':
+            errorTitle = "Printer Access Denied"
+            errorDescription = "Printer access denied. Please check USB permissions and try again."
+            break
+          case 'PRINT_ERROR':
+            errorTitle = "Printing Failed"
+            errorDescription = result.message
+            break
+          default:
+            errorTitle = "Backend Printing Failed"
+            errorDescription = result.message
+        }
+        
+        throw new Error(`${errorTitle}: ${errorDescription}`)
       }
 
       toast.success("Barcode stickers sent to backend printer!", {
@@ -304,7 +331,8 @@ export default function StockManagementPage() {
     } catch (error) {
       console.error('Error generating thermal stickers:', error)
       toast.error("Failed to print barcode stickers", {
-        description: "Backend printing failed. Please try again.",
+        description: error instanceof Error ? error.message : "Backend printing failed. Please try again.",
+        duration: 6000,
       })
     } finally {
       setGeneratingBarcode(false)

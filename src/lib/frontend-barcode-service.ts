@@ -1,6 +1,7 @@
 // Frontend Barcode Service
-// Handles all barcode printing through backend API calls only
-// No direct printer access from frontend
+// Handles all barcode printing through backend API calls ONLY
+// NEVER prints directly from frontend - all printing happens on backend
+// This service only communicates with backend APIs
 
 export interface FrontendStickerData {
   stockID: string
@@ -81,11 +82,35 @@ export class FrontendBarcodeService {
   }
 
   /**
-   * Print stock stickers through backend
+   * Print stock stickers through backend ONLY
+   * Frontend never prints directly - all printing happens on backend
    */
   async printStockStickers(stickers: FrontendStickerData[], quantity: number): Promise<PrintResult> {
     try {
       console.log('Frontend: Sending stock stickers print request to backend:', { stickers: stickers.length, quantity })
+      
+      // Validate request before sending to backend
+      if (!stickers || stickers.length === 0) {
+        return {
+          success: false,
+          message: 'No stickers provided for printing',
+          details: {
+            errorType: 'INVALID_REQUEST',
+            timestamp: new Date().toISOString()
+          }
+        }
+      }
+      
+      if (quantity <= 0) {
+        return {
+          success: false,
+          message: 'Invalid quantity. Must be greater than 0',
+          details: {
+            errorType: 'INVALID_REQUEST',
+            timestamp: new Date().toISOString()
+          }
+        }
+      }
       
       const response = await fetch(`${this.baseUrl}/tsc-print`, {
         method: 'POST',
@@ -97,6 +122,18 @@ export class FrontendBarcodeService {
           quantity
         })
       })
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: `Backend request failed with status ${response.status}`,
+          details: {
+            errorType: 'BACKEND_ERROR',
+            status: response.status,
+            timestamp: new Date().toISOString()
+          }
+        }
+      }
 
       const result = await response.json()
       
@@ -113,6 +150,7 @@ export class FrontendBarcodeService {
         success: false,
         message: `Failed to send print request: ${error instanceof Error ? error.message : 'Unknown error'}`,
         details: {
+          errorType: 'NETWORK_ERROR',
           error: error instanceof Error ? error.stack : String(error),
           timestamp: new Date().toISOString()
         }
