@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
-// Function to generate a unique 5-character stockID
+// Function to generate a unique stockID with HS-#### format
 async function generateStockID(): Promise<string> {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  let stockID: string
-  let isUnique = false
+  let counter = 1
   
-  while (!isUnique) {
-    stockID = ''
-    for (let i = 0; i < 5; i++) {
-      stockID += characters.charAt(Math.floor(Math.random() * characters.length))
-    }
+  while (true) {
+    // Generate HS-#### format with zero-padded numbers
+    const stockID = `HS-${counter.toString().padStart(4, '0')}`
     
     // Check if this stockID already exists
     const existingStock = await prisma.stock.findUnique({
@@ -20,11 +16,11 @@ async function generateStockID(): Promise<string> {
     })
     
     if (!existingStock) {
-      isUnique = true
+      return stockID
     }
+    
+    counter++
   }
-  
-  return stockID!
 }
 
 // Validation schema for creating stock

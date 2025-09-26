@@ -29,7 +29,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { getStockByBarcode, searchStocks, Stock } from "@/lib/api/stock";
-import { createPurchase, CreatePurchaseData } from "@/lib/api/billing";
+import { createPurchase, CreatePurchaseData, Purchase } from "@/lib/api/billing";
 import { billPrinter, BillData } from "@/lib/bill-printer";
 import { toast } from "sonner";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -49,6 +49,7 @@ export default function POSPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
   const [error, setError] = useState("");
+  const [lastCompletedPurchase, setLastCompletedPurchase] = useState<Purchase | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   
   // Search states
@@ -362,8 +363,11 @@ export default function POSPage() {
       if (response.success) {
         toast.success(`Purchase completed! Invoice: ${response.data.invoiceNumber} - Total: ₹${finalTotal.toFixed(2)}${discountAmount > 0 ? ` (Discount: ₹${discountAmount.toFixed(2)})` : ""}`);
         
+        // Store the completed purchase for printing
+        setLastCompletedPurchase(response.data);
+        
         // Print bill after successful purchase
-        await handlePrintBill(response.data);
+        await handlePrintBill();
         
         // Clear form
         clearCart();
@@ -386,12 +390,14 @@ export default function POSPage() {
     }
   };
 
-  const handlePrintBill = async (purchaseData?: any) => {
+  const handlePrintBill = async () => {
     try {
-      if (!purchaseData) {
+      if (!lastCompletedPurchase) {
         toast.error("No purchase data available for printing");
         return;
       }
+      
+      const purchaseData = lastCompletedPurchase;
 
       // Prepare bill data for printing
       const billData: BillData = {
@@ -404,7 +410,7 @@ export default function POSPage() {
         // Invoice Details
         invoiceNumber: purchaseData.invoiceNumber,
         customerName: purchaseData.customerName,
-        customerPhone: purchaseData.customerPhone,
+        customerPhone: purchaseData.customerPhone || undefined,
         date: new Date(purchaseData.createdAt).toLocaleDateString('en-IN'),
         time: new Date(purchaseData.createdAt).toLocaleTimeString('en-IN', { 
           hour: '2-digit', 
@@ -413,7 +419,7 @@ export default function POSPage() {
         }),
         
         // Items
-        items: purchaseData.items.map((item: any) => ({
+        items: purchaseData.items.map((item) => ({
           product: item.stock.itemName,
           productCode: item.stock.stockID,
           qty: item.quantity,

@@ -197,7 +197,7 @@ export default function TransactionHistoryPage() {
         // Invoice Details
         invoiceNumber: purchase.invoiceNumber,
         customerName: purchase.customerName,
-        customerPhone: purchase.customerPhone,
+        customerPhone: purchase.customerPhone || undefined,
         date: new Date(purchase.createdAt).toLocaleDateString('en-IN'),
         time: new Date(purchase.createdAt).toLocaleTimeString('en-IN', { 
           hour: '2-digit', 
