@@ -8,7 +8,7 @@ export function NavUser() {
     <SidebarMenu>
       <SidebarMenuItem>
         <div className="flex items-center justify-center p-2">
-          <span className="text-xs text-muted-foreground">developed by guruf</span>
+          <span className="text-sm text-black font-semi-bold">developed by guruf</span>
         </div>
       </SidebarMenuItem>
     </SidebarMenu>

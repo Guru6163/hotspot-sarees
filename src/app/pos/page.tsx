@@ -27,6 +27,7 @@ import {
   Printer,
   CheckCircle,
   Loader2,
+  X,
 } from "lucide-react";
 import { getStockByBarcode, searchStocks, Stock } from "@/lib/api/stock";
 import { createPurchase, CreatePurchaseData, Purchase } from "@/lib/api/billing";
@@ -71,6 +72,7 @@ export default function POSPage() {
   // Payment information
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "upi">("cash");
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isPurchaseCompleted, setIsPurchaseCompleted] = useState(false);
   
   // Split payment information
   const [isSplitPayment, setIsSplitPayment] = useState(false);
@@ -366,9 +368,6 @@ export default function POSPage() {
         // Store the completed purchase for printing
         setLastCompletedPurchase(response.data);
         
-        // Print bill after successful purchase
-        await handlePrintBill();
-        
         // Clear form
         clearCart();
         setCustomerName("");
@@ -376,9 +375,11 @@ export default function POSPage() {
         setCustomerEmail("");
         setNotes("");
         setDiscountValue("");
-        setIsPaymentModalOpen(false);
         setIsSplitPayment(false);
         resetSplitPayments();
+        
+        // Don't close the modal - show print confirmation instead
+        setIsPurchaseCompleted(true);
       } else {
         toast.error("error" in response ? response.error : "Failed to complete purchase");
       }
@@ -459,6 +460,12 @@ export default function POSPage() {
       console.error("Error printing bill:", error);
       toast.error("Failed to print bill. Please try again.");
     }
+  };
+
+  const handleCloseModal = () => {
+    setIsPaymentModalOpen(false);
+    setIsPurchaseCompleted(false);
+    setLastCompletedPurchase(null);
   };
 
   return (
@@ -860,209 +867,290 @@ export default function POSPage() {
                           Complete Purchase
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-md">
+                      <DialogContent className={`max-w-md ${isSplitPayment ? 'max-h-[95vh] overflow-y-auto' : 'max-h-[90vh] overflow-y-auto'}`}>
                         <DialogHeader>
                           <DialogTitle className="flex items-center gap-2">
-                            <CreditCard className="h-5 w-5" />
-                            Complete Purchase
+                            {isPurchaseCompleted ? (
+                              <>
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                Purchase Completed
+                              </>
+                            ) : (
+                              <>
+                                <CreditCard className="h-5 w-5" />
+                                Complete Purchase
+                              </>
+                            )}
                           </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-6">
-                          {/* Customer Summary */}
-                          <div className="space-y-3">
-                            <h3 className="font-medium">Customer Details</h3>
-                            <div className="bg-muted/50 p-3 rounded-lg space-y-1">
-                              <div className="text-sm">
-                                <span className="text-muted-foreground">Name:</span> {customerName || "Walk-in Customer"}
+                          {isPurchaseCompleted ? (
+                            // Purchase Completed View
+                            <>
+                              <div className="text-center space-y-4">
+                                <div className="flex justify-center">
+                                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                                    <CheckCircle className="h-8 w-8 text-green-600" />
+                                  </div>
+                                </div>
+                                <div>
+                                  <h3 className="text-lg font-semibold text-green-600">Purchase Completed Successfully!</h3>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    Invoice: {lastCompletedPurchase?.invoiceNumber}
+                                  </p>
+                                </div>
                               </div>
-                              {customerPhone && (
-                                <div className="text-sm">
-                                  <span className="text-muted-foreground">Phone:</span> {customerPhone}
-                                </div>
-                              )}
-                              {customerEmail && (
-                                <div className="text-sm">
-                                  <span className="text-muted-foreground">Email:</span> {customerEmail}
-                                </div>
-                              )}
-                            </div>
-                          </div>
 
-                          {/* Order Summary */}
-                          <div className="space-y-3">
-                            <h3 className="font-medium">Order Summary</h3>
-                            <div className="space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span>Items ({totalItems})</span>
-                                <span>₹{subtotal.toFixed(2)}</span>
-                              </div>
-                              {discountAmount > 0 && (
-                                <div className="flex justify-between text-sm text-green-600">
-                                  <span>Discount</span>
-                                  <span>-₹{discountAmount.toFixed(2)}</span>
-                                </div>
-                              )}
-                              <Separator />
-                              <div className="flex justify-between font-bold text-lg">
-                                <span>Total</span>
-                                <span>₹{finalTotal.toFixed(2)}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Payment Method */}
-                          <div className="space-y-3">
-                            <h3 className="font-medium">Payment Method</h3>
-                            
-                            {/* Split Payment Toggle */}
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                id="split-payment"
-                                checked={isSplitPayment}
-                                onChange={(e) => {
-                                  setIsSplitPayment(e.target.checked);
-                                  if (!e.target.checked) {
-                                    resetSplitPayments();
-                                  }
-                                }}
-                                className="rounded border-gray-300"
-                              />
-                              <Label htmlFor="split-payment" className="text-sm cursor-pointer">
-                                Split Payment (Half Cash, Half Other)
-                              </Label>
-                            </div>
-
-                            {!isSplitPayment ? (
-                              <RadioGroup value={paymentMethod} onValueChange={(value: "cash" | "card" | "upi") => setPaymentMethod(value)}>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="cash" id="cash" />
-                                  <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer">
-                                    <Banknote className="h-4 w-4" />
-                                    Cash
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="card" id="card" />
-                                  <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer">
-                                    <CreditCard className="h-4 w-4" />
-                                    Card
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="upi" id="upi" />
-                                  <Label htmlFor="upi" className="flex items-center gap-2 cursor-pointer">
-                                    <Smartphone className="h-4 w-4" />
-                                    UPI
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            ) : (
                               <div className="space-y-3">
-                                <div className="text-sm text-gray-600">
-                                  Total Amount: ₹{finalTotal.toFixed(2)}
-                                </div>
-                                
-                                {/* Cash Payment */}
-                                <div className="space-y-2">
-                                  <Label className="flex items-center gap-2 text-sm font-medium">
-                                    <Banknote className="h-4 w-4" />
-                                    Cash Amount
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    placeholder="0.00"
-                                    value={splitPayments.cash || ""}
-                                    onChange={(e) => handleSplitPaymentChange("cash", e.target.value)}
-                                    step="0.01"
-                                    min="0"
-                                    max={finalTotal}
-                                  />
-                                </div>
-
-                                {/* Card Payment */}
-                                <div className="space-y-2">
-                                  <Label className="flex items-center gap-2 text-sm font-medium">
-                                    <CreditCard className="h-4 w-4" />
-                                    Card Amount
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    placeholder="0.00"
-                                    value={splitPayments.card || ""}
-                                    onChange={(e) => handleSplitPaymentChange("card", e.target.value)}
-                                    step="0.01"
-                                    min="0"
-                                    max={finalTotal}
-                                  />
-                                </div>
-
-                                {/* UPI Payment */}
-                                <div className="space-y-2">
-                                  <Label className="flex items-center gap-2 text-sm font-medium">
-                                    <Smartphone className="h-4 w-4" />
-                                    UPI Amount
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    placeholder="0.00"
-                                    value={splitPayments.upi || ""}
-                                    onChange={(e) => handleSplitPaymentChange("upi", e.target.value)}
-                                    step="0.01"
-                                    min="0"
-                                    max={finalTotal}
-                                  />
-                                </div>
-
-                                {/* Split Payment Summary */}
-                                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                                <h3 className="font-medium">Purchase Summary</h3>
+                                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
                                   <div className="flex justify-between text-sm">
-                                    <span>Split Total:</span>
-                                    <span className="font-medium">₹{getSplitPaymentTotal().toFixed(2)}</span>
+                                    <span>Total Amount:</span>
+                                    <span className="font-medium">₹{lastCompletedPurchase?.totalAmount.toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between text-sm">
-                                    <span>Remaining:</span>
-                                    <span className={`font-medium ${getSplitPaymentDifference() === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      ₹{getSplitPaymentDifference().toFixed(2)}
+                                    <span>Payment Method:</span>
+                                    <span className="font-medium capitalize">
+                                      {lastCompletedPurchase?.isSplitPayment ? "Split Payment" : lastCompletedPurchase?.paymentMethod}
                                     </span>
                                   </div>
-                                  {getSplitPaymentDifference() === 0 && getSplitPaymentTotal() > 0 && (
-                                    <div className="text-xs text-green-600 font-medium">
-                                      ✓ Payment amounts match total
+                                  <div className="flex justify-between text-sm">
+                                    <span>Customer:</span>
+                                    <span className="font-medium">{lastCompletedPurchase?.customerName}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                <h3 className="font-medium">Next Steps</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  Would you like to print the bill for this purchase?
+                                </p>
+                              </div>
+
+                              <div className="flex gap-3">
+                                <Button
+                                  onClick={handlePrintBill}
+                                  className="flex-1"
+                                >
+                                  <Printer className="h-4 w-4 mr-2" />
+                                  Print Bill
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={handleCloseModal}
+                                >
+                                  <X className="h-4 w-4 mr-2" />
+                                  Close
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            // Payment Form View
+                            <>
+                              {/* Customer Summary */}
+                              <div className="space-y-3">
+                                <h3 className="font-medium">Customer Details</h3>
+                                <div className="bg-muted/50 p-3 rounded-lg space-y-1">
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground">Name:</span> {customerName || "Walk-in Customer"}
+                                  </div>
+                                  {customerPhone && (
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">Phone:</span> {customerPhone}
+                                    </div>
+                                  )}
+                                  {customerEmail && (
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">Email:</span> {customerEmail}
                                     </div>
                                   )}
                                 </div>
                               </div>
-                            )}
-                          </div>
 
-                          {/* Action Buttons */}
-                          <div className="flex gap-3">
-                            <Button
-                              onClick={handleCompletePurchase}
-                              className="flex-1"
-                              disabled={isProcessingPurchase}
-                            >
-                              {isProcessingPurchase ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Processing...
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                  Complete Purchase
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={handlePrintBill}
-                              disabled={isProcessingPurchase}
-                            >
-                              <Printer className="h-4 w-4" />
-                            </Button>
-                          </div>
+                              {/* Order Summary */}
+                              <div className="space-y-3">
+                                <h3 className="font-medium">Order Summary</h3>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-sm">
+                                    <span>Items ({totalItems})</span>
+                                    <span>₹{subtotal.toFixed(2)}</span>
+                                  </div>
+                                  {discountAmount > 0 && (
+                                    <div className="flex justify-between text-sm text-green-600">
+                                      <span>Discount</span>
+                                      <span>-₹{discountAmount.toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  <Separator />
+                                  <div className="flex justify-between font-bold text-lg">
+                                    <span>Total</span>
+                                    <span>₹{finalTotal.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Payment Method */}
+                              <div className="space-y-3">
+                                <h3 className="font-medium">Payment Method</h3>
+                                
+                                {/* Split Payment Toggle */}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id="split-payment"
+                                    checked={isSplitPayment}
+                                    onChange={(e) => {
+                                      setIsSplitPayment(e.target.checked);
+                                      if (!e.target.checked) {
+                                        resetSplitPayments();
+                                      }
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <Label htmlFor="split-payment" className="text-sm cursor-pointer">
+                                    Split Payment (Half Cash, Half Other)
+                                  </Label>
+                                </div>
+
+                                {!isSplitPayment ? (
+                                  <RadioGroup value={paymentMethod} onValueChange={(value: "cash" | "card" | "upi") => setPaymentMethod(value)}>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="cash" id="cash" />
+                                      <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer">
+                                        <Banknote className="h-4 w-4" />
+                                        Cash
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="card" id="card" />
+                                      <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer">
+                                        <CreditCard className="h-4 w-4" />
+                                        Card
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="upi" id="upi" />
+                                      <Label htmlFor="upi" className="flex items-center gap-2 cursor-pointer">
+                                        <Smartphone className="h-4 w-4" />
+                                        UPI
+                                      </Label>
+                                    </div>
+                                  </RadioGroup>
+                                ) : (
+                                  <div className="space-y-3">
+                                    <div className="text-sm text-gray-600 font-medium bg-blue-50 p-2 rounded">
+                                      Total Amount: ₹{finalTotal.toFixed(2)}
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 gap-3">
+                                      {/* Cash Payment */}
+                                      <div className="space-y-1">
+                                        <Label className="flex items-center gap-2 text-sm font-medium">
+                                          <Banknote className="h-4 w-4" />
+                                          Cash Amount
+                                        </Label>
+                                        <Input
+                                          type="number"
+                                          placeholder="0.00"
+                                          value={splitPayments.cash || ""}
+                                          onChange={(e) => handleSplitPaymentChange("cash", e.target.value)}
+                                          step="0.01"
+                                          min="0"
+                                          max={finalTotal}
+                                          className="text-sm"
+                                        />
+                                      </div>
+
+                                      {/* Card Payment */}
+                                      <div className="space-y-1">
+                                        <Label className="flex items-center gap-2 text-sm font-medium">
+                                          <CreditCard className="h-4 w-4" />
+                                          Card Amount
+                                        </Label>
+                                        <Input
+                                          type="number"
+                                          placeholder="0.00"
+                                          value={splitPayments.card || ""}
+                                          onChange={(e) => handleSplitPaymentChange("card", e.target.value)}
+                                          step="0.01"
+                                          min="0"
+                                          max={finalTotal}
+                                          className="text-sm"
+                                        />
+                                      </div>
+
+                                      {/* UPI Payment */}
+                                      <div className="space-y-1">
+                                        <Label className="flex items-center gap-2 text-sm font-medium">
+                                          <Smartphone className="h-4 w-4" />
+                                          UPI Amount
+                                        </Label>
+                                        <Input
+                                          type="number"
+                                          placeholder="0.00"
+                                          value={splitPayments.upi || ""}
+                                          onChange={(e) => handleSplitPaymentChange("upi", e.target.value)}
+                                          step="0.01"
+                                          min="0"
+                                          max={finalTotal}
+                                          className="text-sm"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Split Payment Summary */}
+                                    <div className="bg-gray-50 p-3 rounded-lg space-y-2 border">
+                                      <div className="flex justify-between text-sm">
+                                        <span>Split Total:</span>
+                                        <span className="font-medium">₹{getSplitPaymentTotal().toFixed(2)}</span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span>Remaining:</span>
+                                        <span className={`font-medium ${getSplitPaymentDifference() === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                          ₹{getSplitPaymentDifference().toFixed(2)}
+                                        </span>
+                                      </div>
+                                      {getSplitPaymentDifference() === 0 && getSplitPaymentTotal() > 0 && (
+                                        <div className="text-xs text-green-600 font-medium flex items-center gap-1">
+                                          <CheckCircle className="h-3 w-3" />
+                                          Payment amounts match total
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-3">
+                                <Button
+                                  onClick={handleCompletePurchase}
+                                  className="flex-1"
+                                  disabled={isProcessingPurchase}
+                                >
+                                  {isProcessingPurchase ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Processing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Complete Purchase
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={handlePrintBill}
+                                  disabled={isProcessingPurchase}
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </DialogContent>
                     </Dialog>
