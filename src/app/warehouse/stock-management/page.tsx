@@ -683,7 +683,6 @@ export default function StockManagementPage() {
                           <TableHead className="text-right">Profit %</TableHead>
                           <TableHead className="text-right">Total Value (₹)</TableHead>
                           <TableHead>Supplier</TableHead>
-                          <TableHead>Created</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -727,9 +726,6 @@ export default function StockManagementPage() {
                                 ₹{(item.quantity * item.unitPrice).toLocaleString()}
                               </TableCell>
                               <TableCell className="text-sm">{item.supplier}</TableCell>
-                              <TableCell className="text-sm">
-                                {format(new Date(item.createdAt), "MMM dd, yyyy")}
-                              </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
                                   <Button 
