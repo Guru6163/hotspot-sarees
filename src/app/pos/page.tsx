@@ -179,7 +179,7 @@ export default function POSPage() {
         const updatedCart = [...cart];
         updatedCart[existingItemIndex].quantity += 1;
         updatedCart[existingItemIndex].totalPrice =
-          updatedCart[existingItemIndex].quantity * stock.unitPrice;
+          updatedCart[existingItemIndex].quantity * (stock.sellingPrice || stock.unitPrice);
         setCart(updatedCart);
         toast.success(`Updated quantity for ${stock.itemName}`);
       } else {
@@ -187,7 +187,7 @@ export default function POSPage() {
         const newItem: CartItem = {
           stock,
           quantity: 1,
-          totalPrice: stock.unitPrice,
+          totalPrice: stock.sellingPrice || stock.unitPrice,
         };
         setCart([...cart, newItem]);
         toast.success(`Added ${stock.itemName} to invoice`);
@@ -231,7 +231,7 @@ export default function POSPage() {
       const updatedCart = [...cart];
       updatedCart[existingItemIndex].quantity += 1;
       updatedCart[existingItemIndex].totalPrice =
-        updatedCart[existingItemIndex].quantity * stock.unitPrice;
+        updatedCart[existingItemIndex].quantity * (stock.sellingPrice || stock.unitPrice);
       setCart(updatedCart);
       toast.success(`Updated quantity for ${stock.itemName}`);
     } else {
@@ -239,7 +239,7 @@ export default function POSPage() {
       const newItem: CartItem = {
         stock,
         quantity: 1,
-        totalPrice: stock.unitPrice,
+        totalPrice: stock.sellingPrice || stock.unitPrice,
       };
       setCart([...cart, newItem]);
       toast.success(`Added ${stock.itemName} to invoice`);
@@ -261,7 +261,7 @@ export default function POSPage() {
         return {
           ...item,
           quantity: newQuantity,
-          totalPrice: newQuantity * item.stock.unitPrice,
+          totalPrice: newQuantity * (item.stock.sellingPrice || item.stock.unitPrice),
         };
       }
       return item;
@@ -355,7 +355,7 @@ export default function POSPage() {
         items: cart.map(item => ({
           stockId: item.stock.id,
           quantity: item.quantity,
-          unitPrice: item.stock.unitPrice,
+          unitPrice: item.stock.sellingPrice || item.stock.unitPrice,
           totalPrice: item.totalPrice
         }))
       };
@@ -650,7 +650,7 @@ export default function POSPage() {
                               </div>
                               <div className="text-right">
                                 <div className="font-medium text-sm">
-                                  ₹{stock.unitPrice}
+                                  ₹{stock.sellingPrice || stock.unitPrice}
                                 </div>
                               </div>
                             </div>
@@ -728,7 +728,7 @@ export default function POSPage() {
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>₹{item.stock.unitPrice}</TableCell>
+                              <TableCell>₹{item.stock.sellingPrice || item.stock.unitPrice}</TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
                                   <Button
