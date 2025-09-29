@@ -48,13 +48,17 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/",
       icon: BarChart3,
       isActive: true,
       items: [
         {
           title: "Overview",
-          url: "#",
+          url: "/",
+        },
+        {
+          title: "Analytics",
+          url: "/analytics",
         },
       ],
     },
